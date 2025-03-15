@@ -1,0 +1,6 @@
+@FruityGitServer_HostAddress = http://localhost:5100
+
+GET {{FruityGitServer_HostAddress}}/FruityGit/
+Accept: application/json
+
+###

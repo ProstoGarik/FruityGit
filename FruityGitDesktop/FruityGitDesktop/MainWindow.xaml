@@ -15,5 +15,13 @@
             <ColumnDefinition/>
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
+        <Grid Grid.Row="0" Grid.Column="0">
+            <TextBox Width="300px" Height="100px" Name="InputTextBox"/>
+        </Grid>
+        <Grid Grid.Row="1" Grid.Column="0">
+            <Button Width="200" Height="50" Name="SendButton" Click="SendButton_Click">
+                <TextBlock Text="Отправить"/>
+            </Button>
+        </Grid>
     </Grid>
 </Window>
