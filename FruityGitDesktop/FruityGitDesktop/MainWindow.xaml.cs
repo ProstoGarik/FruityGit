@@ -18,24 +18,45 @@ namespace FruityGitDesktop
     /// </summary>
     public partial class MainWindow : Window
     {
-        private static readonly HttpClient httpClient = new HttpClient();
+        private readonly HttpClient httpClient;
+        private string selectedFlpPath;
         public MainWindow()
         {
             InitializeComponent();
+            httpClient = new HttpClient();
+            selectedFlpPath = string.Empty;
         }
 
         private async void SendButton_Click(object sender, RoutedEventArgs e)
         {
-            string Text = InputTextBox.Text;
-
-            var commitRequest = new CommitRequest()
+            using (var content = new MultipartFormDataContent())
+            using (var fileStream = System.IO.File.OpenRead(selectedFlpPath))
             {
-                message = Text,
-                UserName = "BasePC",
-                UserEmail = "temp@mail.com"
+                var fileContent = new StreamContent(fileStream);
+                content.Add(fileContent, "file", System.IO.Path.GetFileName(selectedFlpPath));
+
+                content.Add(new StringContent(InputTextBox.Text), "message");
+                content.Add(new StringContent("BasePC"), "userName");
+                content.Add(new StringContent("temp@mail.com"), "userEmail");
+
+                var response = await httpClient.PostAsync("http://localhost:5100/api/git/commit", content);
+            }
+        }
+
+        private void AttachFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "FLP Files (*.flp)|*.flp",
+                Title = "Выберите .flp файл"
             };
 
-            var response = await httpClient.PostAsJsonAsync("http://localhost:5100/api/commit", commitRequest);
+            if (openFileDialog.ShowDialog() == true)
+            {
+                string selectedFilePath = openFileDialog.FileName;
+
+                selectedFlpPath = selectedFilePath;
+            }
         }
     }
 }
