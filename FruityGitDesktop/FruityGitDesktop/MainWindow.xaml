@@ -30,5 +30,10 @@
                 <TextBlock Text="Получить"/>
             </Button>
         </Grid>
+        <Grid Grid.Column="1" Grid.Row="0">
+            <Button x:Name="CreateRepoButton" Width="200" Height="50" HorizontalAlignment="Center" VerticalAlignment="Center" Click="CreateRepoButton_Click">
+                <TextBlock Text="Создать репозиторий"/>
+            </Button>
+        </Grid>
     </Grid>
 </Window>

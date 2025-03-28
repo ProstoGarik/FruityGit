@@ -29,17 +29,34 @@ namespace FruityGitDesktop
 
         private async void SendButton_Click(object sender, RoutedEventArgs e)
         {
-            using (var content = new MultipartFormDataContent())
-            using (var fileStream = System.IO.File.OpenRead(selectedFlpPath))
+            try
             {
-                var fileContent = new StreamContent(fileStream);
-                content.Add(fileContent, "file", System.IO.Path.GetFileName(selectedFlpPath));
+                using (var content = new MultipartFormDataContent())
+                using (var fileStream = System.IO.File.OpenRead(selectedFlpPath))
+                using (var fileContent = new StreamContent(fileStream))
+                {
+                    content.Add(fileContent, "file", System.IO.Path.GetFileName(selectedFlpPath));
+                    content.Add(new StringContent(InputTextBox.Text), "message");
+                    content.Add(new StringContent("BasePC"), "userName");
+                    content.Add(new StringContent("temp@mail.com"), "userEmail");
 
-                content.Add(new StringContent(InputTextBox.Text), "message");
-                content.Add(new StringContent("BasePC"), "userName");
-                content.Add(new StringContent("temp@mail.com"), "userEmail");
+                    var response = await httpClient.PostAsync("http://localhost:5100/api/git/commit", content);
 
-                var response = await httpClient.PostAsync("http://localhost:5100/api/git/commit", content);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        MessageBox.Show(errorContent);
+                    }
+                    else
+                    {
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        MessageBox.Show(responseContent);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString());
             }
         }
 
@@ -57,6 +74,11 @@ namespace FruityGitDesktop
 
                 selectedFlpPath = selectedFilePath;
             }
+        }
+
+        private async void CreateRepoButton_Click(object sender, RoutedEventArgs e)
+        {
+            await httpClient.PostAsJsonAsync("http://localhost:5100/api/git/init", string.Empty);
         }
     }
 }
