@@ -18,7 +18,7 @@ var app = builder.Build();
 app.Use(async (context, next) =>
 {
     var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation($"Входящий запрос: {context.Request.Method} {context.Request.Path}");
+    logger.LogInformation($"Incoming request: {context.Request.Method} {context.Request.Path}");
     try
     {
         await next();
@@ -26,12 +26,12 @@ app.Use(async (context, next) =>
     catch (Exception ex)
     {
         if (app.Environment.IsDevelopment())
-            logger.LogError($"Ошибка: {context.Request.Method} {context.Request.Path}: {ex.Message}");
+            logger.LogError($"Error: {context.Request.Method} {context.Request.Path}: {ex.Message}");
     }
     finally
     {
         logger.LogInformation(
-            $"Запрос выполнен: {context.Request.Method} {context.Request.Path} [{context.Response.StatusCode}] ");
+            $"Request complete: {context.Request.Method} {context.Request.Path} [{context.Response.StatusCode}] ");
     }
 });
 
