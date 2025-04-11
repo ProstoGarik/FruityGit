@@ -5,7 +5,9 @@ VisualStudioVersion = 17.10.35122.118
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FruityGitDesktop", "FruityGitDesktop\FruityGitDesktop.csproj", "{FEAB2085-A9CF-4965-B1E6-AA583A7F29B2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FruityGitServer", "FruityGitServer\FruityGitServer.csproj", "{A75BAE4D-837E-425E-B1A0-E1E419F8A11A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FruityGitServer", "FruityGitServer\FruityGitServer.csproj", "{A75BAE4D-837E-425E-B1A0-E1E419F8A11A}"
+EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{A75BAE4D-837E-425E-B1A0-E1E419F8A11A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A75BAE4D-837E-425E-B1A0-E1E419F8A11A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A75BAE4D-837E-425E-B1A0-E1E419F8A11A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
