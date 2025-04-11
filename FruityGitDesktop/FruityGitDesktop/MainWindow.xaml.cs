@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using static System.Net.WebRequestMethods;
 
 namespace FruityGitDesktop
 {
@@ -20,6 +21,7 @@ namespace FruityGitDesktop
     {
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
+        private string serverPath = "http://192.168.135.58:8000";
         public MainWindow()
         {
             InitializeComponent();
@@ -40,7 +42,7 @@ namespace FruityGitDesktop
                     content.Add(new StringContent("BasePC"), "userName");
                     content.Add(new StringContent("temp@mail.com"), "userEmail");
 
-                    var response = await httpClient.PostAsync("http://localhost:5100/api/git/commit", content);
+                    var response = await httpClient.PostAsync(serverPath + "/api/git/commit", content);
 
                     if (!response.IsSuccessStatusCode)
                     {
@@ -78,7 +80,7 @@ namespace FruityGitDesktop
 
         private async void CreateRepoButton_Click(object sender, RoutedEventArgs e)
         {
-            await httpClient.PostAsJsonAsync("http://localhost:5100/api/git/init", string.Empty);
+            await httpClient.PostAsJsonAsync(serverPath + "/api/git/init", string.Empty);
         }
     }
 }
