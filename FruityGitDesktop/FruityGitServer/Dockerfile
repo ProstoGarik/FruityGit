@@ -13,7 +13,7 @@ FROM build AS publish
 RUN dotnet publish "FruityGitServer.csproj" -c Release -o /app/publish
 
 
-FROM mcr.microsoft.com/dotnet/aspnet:7.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "FruityGitServer.dll"]
