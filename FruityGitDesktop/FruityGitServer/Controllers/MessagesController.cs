@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Http;
 [Route("api/git")]
 public class GitController : ControllerBase
 {
-    private readonly string _repoPath = @"./";
+    private readonly string _repoPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "ReposFolder");
 
     [HttpPost("init")]
     public IActionResult InitializeRepository()
