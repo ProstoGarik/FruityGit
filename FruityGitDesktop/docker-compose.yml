@@ -47,8 +47,8 @@ services:
     logging: *default-logging
     networks:
       - stats
+
   fruitygitserver:
-    image: ${DOCKER_REGISTRY-}fruitygitserver
     build:
       context: .
       dockerfile: FruityGitServer/Dockerfile
