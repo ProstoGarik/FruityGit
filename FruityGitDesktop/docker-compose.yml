@@ -1,5 +1,3 @@
-version: '3.4'
-
 x-logging: &default-logging
   driver: loki
   options:
@@ -49,8 +47,6 @@ services:
     logging: *default-logging
     networks:
       - stats
-
-
   fruitygitserver:
     image: ${DOCKER_REGISTRY-}fruitygitserver
     build:
