@@ -15,5 +15,9 @@
     </None>
     <None Include="docker-compose.yml" />
     <None Include=".dockerignore" />
+    <None Include="etc\grafana\dashboards.yaml" />
+    <None Include="etc\grafana\data\alerting\1\__default__.tmpl" />
+    <None Include="etc\grafana\data\grafana.db" />
+    <None Include="etc\prometheus\prometheus.yml" />
   </ItemGroup>
 </Project>
