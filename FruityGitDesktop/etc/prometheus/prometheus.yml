@@ -27,4 +27,4 @@ scrape_configs:
     scrape_interval: 10s
     metrics_path: /metrics
     static_configs:
-      - targets: ['fruitygitserver:8080']
+      - targets: ['fruitygitserver:8000']
