@@ -1,8 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using FruityGitServer;
 using System;
+using Prometheus;
+using Serilog;
+using Serilog.Sinks.Grafana.Loki;
+
+Log.Logger = new LoggerConfiguration()
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("app", Environment.GetEnvironmentVariable("APP_NAME"))
+    .WriteTo.GrafanaLoki(
+        "http://loki:3100",
+        labels: new List<LokiLabel> { new LokiLabel { Key = "app", Value = Environment.GetEnvironmentVariable("APP_NAME") } }
+    )
+    .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
 
 // Add services to the container.
 
