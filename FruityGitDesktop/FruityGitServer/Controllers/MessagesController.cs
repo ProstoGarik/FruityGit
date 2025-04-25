@@ -12,13 +12,27 @@ public class GitController : ControllerBase
     [HttpPost("init")]
     public IActionResult InitializeRepository()
     {
-        if (!Repository.IsValid(_repoPath))
-        {
-            Repository.Init(_repoPath);
-            return Ok("Repository initialized.");
-        }
+        var logger = HttpContext.RequestServices.GetRequiredService<ILogger<GitController>>();
+        logger.LogInformation($"Attempting to initialize repository at: {_repoPath}");
 
-        return BadRequest("Repository already exists.");
+        try
+        {
+            if (!Repository.IsValid(_repoPath))
+            {
+                logger.LogInformation("Path is not a valid repository, initializing...");
+                Repository.Init(_repoPath);
+                logger.LogInformation($"Repository initialized at: {_repoPath}");
+                return Ok("Repository initialized.");
+            }
+
+            logger.LogInformation("Repository already exists");
+            return BadRequest("Repository already exists.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Error initializing repository: {ex}");
+            return StatusCode(500, $"Error initializing repository: {ex.Message}");
+        }
     }
 
     [HttpPost("commit")]

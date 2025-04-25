@@ -69,6 +69,8 @@ services:
     logging: *default-logging
     environment:
       APP_NAME: "fruitygit"
+    volumes:
+      - ./ReposFolder:/app/ReposFolder
         
 
 volumes:
