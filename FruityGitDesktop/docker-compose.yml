@@ -17,8 +17,7 @@ services:
       - stats
 
   prometheus:
-    stop_grace_period: 30s
-    stop_signal: SIGTERM
+    stop_grace_period: 15s
     image: prom/prometheus:v2.51.2
     volumes:
       - ./etc/prometheus:/etc/prometheus
@@ -31,8 +30,7 @@ services:
       - stats
     
   grafana:
-    stop_grace_period: 30s
-    stop_signal: SIGTERM
+    stop_grace_period: 15s
     image: grafana/grafana:10.4.2
     ports:
       - "3000:3000"
