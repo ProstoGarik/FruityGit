@@ -15,6 +15,8 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - stats
+    ports:
+      - "3100:3100"
 
   prometheus:
     stop_grace_period: 15s
@@ -61,7 +63,10 @@ services:
       loki:
         condition: service_started
     logging: *default-logging
+    environment:
+      APP_NAME: "fruitygit"
         
+
 volumes:
   grafana_data:
 
