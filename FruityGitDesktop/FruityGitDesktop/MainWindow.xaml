@@ -26,7 +26,7 @@
             <Button Width="100" Height="50" Name="SendButton" Click="SendButton_Click" Margin = "0 0 120 0">
                 <TextBlock Text="Отправить"/>
             </Button>
-            <Button Width="100" Height="50" Name="GetButton" Margin = "120 0 0 0">
+            <Button Width="100" Height="50" Name="GetButton" Margin = "120 0 0 0" Click="GetButton_Click">
                 <TextBlock Text="Получить"/>
             </Button>
         </Grid>

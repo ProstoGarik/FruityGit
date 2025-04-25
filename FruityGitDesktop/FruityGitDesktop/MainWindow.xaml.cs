@@ -82,5 +82,54 @@ namespace FruityGitDesktop
         {
             await httpClient.PostAsJsonAsync(serverPath + "/api/git/init", string.Empty);
         }
+
+        private async void GetButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Get the commit history
+                var response = await httpClient.GetAsync(serverPath + "/api/git/history");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Error: {errorContent}", "Commit History", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // Parse the response
+                var commitHistory = await response.Content.ReadFromJsonAsync<List<string>>();
+
+                if (commitHistory == null || commitHistory.Count == 0)
+                {
+                    MessageBox.Show("No commits found in the repository.", "Commit History", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // Get the most recent commit (first in the list)
+                var lastCommit = commitHistory.First();
+
+                // Display commit information in a more readable format
+                var commitParts = lastCommit.Split(new[] { " - " }, StringSplitOptions.None);
+                var commitDetails = new StringBuilder();
+
+                if (commitParts.Length >= 3)
+                {
+                    commitDetails.AppendLine($"Commit ID: {commitParts[0]}");
+                    commitDetails.AppendLine($"Message: {commitParts[1]}");
+                    commitDetails.AppendLine($"Date: {commitParts[2]}");
+                }
+                else
+                {
+                    commitDetails.AppendLine(lastCommit);
+                }
+
+                MessageBox.Show(commitDetails.ToString(), "Last Commit Details", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
     }
 }
