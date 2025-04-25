@@ -11,6 +11,7 @@ x-logging: &default-logging
 
 services:
   loki:
+    container_name: "loki"
     image: grafana/loki:3.0.0
     command: -config.file=/etc/loki/local-config.yaml
     networks:
@@ -19,6 +20,7 @@ services:
       - "3100:3100"
 
   prometheus:
+    container_name: "prometheus"
     stop_grace_period: 15s
     image: prom/prometheus:v2.51.2
     volumes:
@@ -32,6 +34,7 @@ services:
       - stats
     
   grafana:
+    container_name: "grafana"
     stop_grace_period: 15s
     image: grafana/grafana:10.4.2
     ports:
@@ -52,6 +55,7 @@ services:
       - stats
 
   fruitygitserver:
+    container_name: "fruity-server"
     build:
       context: .
       dockerfile: FruityGitServer/Dockerfile
