@@ -19,10 +19,15 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
         {
             if (!Repository.IsValid(_repoPath))
             {
-                logger.LogInformation("Path is not a valid repository, initializing...");
+                logger.LogInformation("Initializing new repository...");
                 Repository.Init(_repoPath);
-                logger.LogInformation($"Repository initialized at: {_repoPath}");
                 return Ok("Repository initialized.");
+            }
+
+            if (Directory.Exists(Path.Combine(_repoPath, ".git")))
+            {
+                logger.LogWarning("Found .git directory but repository is not valid");
+                Directory.Delete(Path.Combine(_repoPath, ".git"), true);
             }
 
             logger.LogInformation("Repository already exists");
