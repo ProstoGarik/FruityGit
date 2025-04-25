@@ -21,10 +21,9 @@ services:
     stop_signal: SIGTERM
     image: prom/prometheus:v2.51.2
     volumes:
-      - ./etc/prometheus:/workspace
+      - ./etc/prometheus:/etc/prometheus
     command:
-      - --config.file=/workspace/prometheus.yml
-      - --enable-feature=exemplar-storage
+      - --config.file=/etc/prometheus/prometheus.yml
     depends_on:
       - loki
     logging: *default-logging
@@ -38,7 +37,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./etc/grafana/data:/var/lib/grafana
+      - grafana_data:/var/lib/grafana
       - ./etc/grafana/provisioning:/etc/grafana/provisioning
       - ./etc/dashboards:/etc/grafana/dashboards
     environment:
@@ -65,6 +64,8 @@ services:
         condition: service_started
     logging: *default-logging
         
+volumes:
+  grafana_data:
 
 networks:
   stats:
