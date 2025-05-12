@@ -1,0 +1,38 @@
+// Custom variables
+$body-bg: #0d1117;
+$body-color: #c9d1d9;
+$card-bg: #161b22;
+$card-border-color: #30363d;
+$input-bg: #0d1117;
+$input-color: #c9d1d9;
+$input-border-color: #30363d;
+$input-focus-border-color: #58a6ff;
+$input-focus-box-shadow: 0 0 0 0.2rem rgba(88, 166, 255, 0.25);
+
+// Bootstrap
+// Replace the wildcard import with a namespaced import
+// New recommended way
+@use "../../node_modules/bootstrap/scss/bootstrap";
+
+// Then reference Bootstrap variables with the namespace
+body {
+  background-color: bootstrap.$body-bg;
+}
+
+.card {
+    background-color: $card-bg;
+    border-color: $card-border-color;
+}
+
+.form-control {
+    background-color: $input-bg;
+    border-color: $input-border-color;
+    color: $input-color;
+    
+    &:focus {
+        background-color: $input-bg;
+        color: $input-color;
+        border-color: $input-focus-border-color;
+        box-shadow: $input-focus-box-shadow;
+    }
+}
