@@ -10,11 +10,8 @@ $input-focus-border-color: #58a6ff;
 $input-focus-box-shadow: 0 0 0 0.2rem rgba(88, 166, 255, 0.25);
 
 // Bootstrap
-// Replace the wildcard import with a namespaced import
-// New recommended way
 @use "../../node_modules/bootstrap/scss/bootstrap";
 
-// Then reference Bootstrap variables with the namespace
 body {
   background-color: bootstrap.$body-bg;
 }
