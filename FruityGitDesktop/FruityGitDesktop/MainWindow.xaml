@@ -20,7 +20,7 @@
                 <TextBlock Text="Прикрепить файл"/>
             </Button>
             <TextBlock Text="Комментарий:" FontSize = "15" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0 70"/>
-            <TextBox Width="300px" Height="50" Name="InputTextBox" VerticalAlignment="Top" Margin="0 95"/>
+            <TextBox Width="300px" Height="50" Name="InputTextBox" VerticalAlignment="Top" Margin="0 95 0 0"/>
             <Button Width="100" Height="50" Name="SendButton" Click="SendButton_Click" VerticalAlignment="Bottom" Margin="0 0 150 15">
                 <TextBlock Text="Отправить"/>
             </Button>
@@ -32,8 +32,11 @@
                 <TextBlock Text="Создать репозиторий"/>
             </Button>
             <ListBox x:Name="ReposListBox" HorizontalAlignment="Right" VerticalAlignment="Top" Width="200" Height="120" Margin="10"/>
-            <Button x:Name="ShowRepoButton" Width="150" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Click="CreateRepoButton_Click" Margin="15">
+            <Button x:Name="ShowRepoButton" Width="150" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Click="GetButton_Click" Margin="15">
                 <TextBlock Text="Просмотреть репозиторий"/>
+            </Button>
+            <Button x:Name="RefreshRepoButton" Width="150" Height="50" HorizontalAlignment="Left" VerticalAlignment="Top" Click="RefreshRepoButton_Click"  Margin="15 70 0 0">
+                <TextBlock Text="Обновить"/>
             </Button>
         </Grid>
         <Grid Grid.Column="1" Grid.Row="0">

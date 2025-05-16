@@ -21,7 +21,7 @@ namespace FruityGitDesktop
     {
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
-        private string serverPath = "http://192.168.135.58:8000";
+        private string serverPath = "http://192.168.1.54:8000";
         public MainWindow()
         {
             InitializeComponent();
@@ -33,6 +33,14 @@ namespace FruityGitDesktop
         {
             try
             {
+                if (ReposListBox.SelectedItem == null)
+                {
+                    MessageBox.Show("Please select a repository first.", "No Repository Selected",
+                                  MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string selectedRepo = ReposListBox.SelectedItem.ToString();
                 using (var content = new MultipartFormDataContent())
                 using (var fileStream = System.IO.File.OpenRead(selectedFlpPath))
                 using (var fileContent = new StreamContent(fileStream))
@@ -42,7 +50,7 @@ namespace FruityGitDesktop
                     content.Add(new StringContent("BasePC"), "userName");
                     content.Add(new StringContent("temp@mail.com"), "userEmail");
 
-                    var response = await httpClient.PostAsync(serverPath + "/api/git/commit", content);
+                    var response = await httpClient.PostAsync($"{serverPath}/api/git/{selectedRepo}/commit", content);
 
                     if (!response.IsSuccessStatusCode)
                     {
@@ -97,20 +105,13 @@ namespace FruityGitDesktop
                     $"{serverPath}/api/git/{repoCreateName}/init",
                     string.Empty);
 
+                // Replace the success handling code with:
                 if (response.IsSuccessStatusCode)
                 {
-                    // Add to ListBox if not already present
-                    if (!ReposListBox.Items.Contains(repoCreateName))
-                    {
-                        ReposListBox.Items.Add(repoCreateName);
-                        // Optionally select the new repository
-                        ReposListBox.SelectedItem = repoCreateName;
-                    }
-
+                    await RefreshRepositoryList();
+                    ReposListBox.SelectedItem = repoCreateName;
                     MessageBox.Show($"Repository '{repoCreateName}' created successfully!",
                                   "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-
-                    // Clear the text box
                     RepoNameTextBox.Text = string.Empty;
                 }
                 else
@@ -214,6 +215,33 @@ namespace FruityGitDesktop
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
+
+        }
+        private async Task RefreshRepositoryList()
+        {
+            try
+            {
+                var response = await httpClient.GetAsync($"{serverPath}/api/git/repositories");
+                if (response.IsSuccessStatusCode)
+                {
+                    var repos = await response.Content.ReadFromJsonAsync<List<string>>();
+                    ReposListBox.Items.Clear();
+                    foreach (var repo in repos)
+                    {
+                        ReposListBox.Items.Add(repo);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to refresh repositories: {ex.Message}",
+                              "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void RefreshRepoButton_Click(object sender, RoutedEventArgs e)
+        {
+            await RefreshRepositoryList();
         }
     }
 }
