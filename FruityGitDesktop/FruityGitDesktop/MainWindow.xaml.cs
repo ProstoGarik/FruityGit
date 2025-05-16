@@ -80,55 +80,139 @@ namespace FruityGitDesktop
 
         private async void CreateRepoButton_Click(object sender, RoutedEventArgs e)
         {
-            await httpClient.PostAsJsonAsync(serverPath + "/api/git/init", string.Empty);
+            string repoCreateName = RepoNameTextBox.Text.Trim();
+
+            // Validate repository name
+            if (string.IsNullOrWhiteSpace(repoCreateName))
+            {
+                MessageBox.Show("Please enter a repository name", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                // Send request to create repository
+                var response = await httpClient.PostAsJsonAsync(
+                    $"{serverPath}/api/git/{repoCreateName}/init",
+                    string.Empty);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    // Add to ListBox if not already present
+                    if (!ReposListBox.Items.Contains(repoCreateName))
+                    {
+                        ReposListBox.Items.Add(repoCreateName);
+                        // Optionally select the new repository
+                        ReposListBox.SelectedItem = repoCreateName;
+                    }
+
+                    MessageBox.Show($"Repository '{repoCreateName}' created successfully!",
+                                  "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    // Clear the text box
+                    RepoNameTextBox.Text = string.Empty;
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Failed to create repository: {errorContent}",
+                                  "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"An error occurred: {ex.Message}",
+                              "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private async void GetButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                // Get the commit history
-                var response = await httpClient.GetAsync(serverPath + "/api/git/history");
+                // Check if a repository is selected
+                if (ReposListBox.SelectedItem == null)
+                {
+                    MessageBox.Show("Please select a repository first.", "No Repository Selected",
+                                  MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                string selectedRepo = ReposListBox.SelectedItem.ToString();
+
+                // Make request to get history for the selected repository
+                var response = await httpClient.GetAsync($"{serverPath}/api/git/{selectedRepo}/history");
 
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    MessageBox.Show($"Error: {errorContent}", "Commit History", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Error: {errorContent}", "Commit History",
+                                  MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
 
-                // Parse the response
                 var commitHistory = await response.Content.ReadFromJsonAsync<List<string>>();
 
                 if (commitHistory == null || commitHistory.Count == 0)
                 {
-                    MessageBox.Show("No commits found in the repository.", "Commit History", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"No commits found in repository '{selectedRepo}'.",
+                                  "Commit History", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
-                // Get the most recent commit (first in the list)
-                var lastCommit = commitHistory.First();
-
-                // Display commit information in a more readable format
-                var commitParts = lastCommit.Split(new[] { " - " }, StringSplitOptions.None);
+                // Create a more detailed display of all commits
                 var commitDetails = new StringBuilder();
+                commitDetails.AppendLine($"Repository: {selectedRepo}");
+                commitDetails.AppendLine($"Total Commits: {commitHistory.Count}");
+                commitDetails.AppendLine();
+                commitDetails.AppendLine("Commit History:");
+                commitDetails.AppendLine("---------------");
 
-                if (commitParts.Length >= 3)
+                foreach (var commit in commitHistory)
                 {
-                    commitDetails.AppendLine($"Commit ID: {commitParts[0]}");
-                    commitDetails.AppendLine($"Message: {commitParts[1]}");
-                    commitDetails.AppendLine($"Date: {commitParts[2]}");
-                }
-                else
-                {
-                    commitDetails.AppendLine(lastCommit);
+                    var commitParts = commit.Split(new[] { " - " }, StringSplitOptions.None);
+
+                    if (commitParts.Length >= 3)
+                    {
+                        commitDetails.AppendLine($"ID: {commitParts[0]}");
+                        commitDetails.AppendLine($"Message: {commitParts[1]}");
+                        commitDetails.AppendLine($"Date: {commitParts[2]}");
+                        commitDetails.AppendLine("---------------");
+                    }
+                    else
+                    {
+                        commitDetails.AppendLine(commit);
+                        commitDetails.AppendLine("---------------");
+                    }
                 }
 
-                MessageBox.Show(commitDetails.ToString(), "Last Commit Details", MessageBoxButton.OK, MessageBoxImage.Information);
+                // Show in a scrollable dialog instead of MessageBox
+                var dialog = new Window
+                {
+                    Title = $"Commit History for {selectedRepo}",
+                    Content = new ScrollViewer
+                    {
+                        Content = new TextBlock
+                        {
+                            Text = commitDetails.ToString(),
+                            TextWrapping = TextWrapping.Wrap,
+                            Margin = new Thickness(10),
+                            FontFamily = new FontFamily("Consolas")
+                        },
+                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                    },
+                    Width = 600,
+                    Height = 400,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner
+                };
+
+                dialog.ShowDialog();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"An error occurred: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

@@ -5,33 +5,37 @@ using Microsoft.AspNetCore.Http;
 
 [ApiController]
 [Route("api/git")]
-public class GitController(IWebHostEnvironment env) : ControllerBase 
+public class GitController(IWebHostEnvironment env) : ControllerBase
 {
-    private readonly string _repoPath = Path.Combine(env.ContentRootPath, "ReposFolder");
+    private readonly string _reposRootPath = Path.Combine(env.ContentRootPath, "ReposFolder");
 
-    [HttpPost("init")]
-    public IActionResult InitializeRepository()
+    [HttpPost("{repoName}/init")]
+    public IActionResult InitializeRepository(string repoName)
     {
         var logger = HttpContext.RequestServices.GetRequiredService<ILogger<GitController>>();
-        logger.LogInformation($"Attempting to initialize repository at: {_repoPath}");
+        var repoPath = Path.Combine(_reposRootPath, repoName);
+
+        logger.LogInformation($"Attempting to initialize repository at: {repoPath}");
 
         try
         {
-            if (!Repository.IsValid(_repoPath))
+            Directory.CreateDirectory(_reposRootPath);
+
+            if (Repository.IsValid(repoPath))
             {
-                logger.LogInformation("Initializing new repository...");
-                Repository.Init(_repoPath);
-                return Ok("Repository initialized.");
+                logger.LogInformation("Repository already exists");
+                return BadRequest("Repository already exists.");
             }
 
-            if (Directory.Exists(Path.Combine(_repoPath, ".git")))
+            if (Directory.Exists(Path.Combine(repoPath, ".git")))
             {
-                logger.LogWarning("Found .git directory but repository is not valid");
-                Directory.Delete(Path.Combine(_repoPath, ".git"), true);
+                logger.LogWarning("Found not valid .git directory. Deleting...");
+                Directory.Delete(Path.Combine(repoPath, ".git"), true);
             }
 
-            logger.LogInformation("Repository already exists");
-            return BadRequest("Repository already exists.");
+            logger.LogInformation("Initializing new repository...");
+            Repository.Init(repoPath);
+            return Ok("Repository initialized.");
         }
         catch (Exception ex)
         {
@@ -40,25 +44,27 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
         }
     }
 
-    [HttpPost("commit")]
-    public IActionResult Commit([FromForm] CommitRequest request)
+    [HttpPost("{repoName}/commit")]
+    public IActionResult Commit(string repoName, [FromForm] CommitRequest request)
     {
+        var repoPath = Path.Combine(_reposRootPath, repoName);
+
         try
         {
-            using (var repo = new Repository(_repoPath))
+            using (var repo = new Repository(repoPath))
             {
                 if (request.File == null || request.File.Length == 0)
                 {
-                    return BadRequest("Файл не был загружен.");
+                    return BadRequest("File was not uploaded.");
                 }
 
-                string flpFilePath = Path.Combine(_repoPath, request.File.FileName);
-                using (var stream = new FileStream(flpFilePath, FileMode.Create))
+                string filePath = Path.Combine(repoPath, request.File.FileName);
+                using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     request.File.CopyTo(stream);
                 }
 
-                Commands.Stage(repo, flpFilePath);
+                Commands.Stage(repo, filePath);
 
                 var signature = new Signature(request.UserName, request.UserEmail, DateTimeOffset.Now);
                 repo.Commit(request.Message, signature, signature);
@@ -76,20 +82,55 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
         }
     }
 
-    [HttpGet("history")]
-    public IActionResult GetHistory()
+    [HttpGet("{repoName}/history")]
+    public IActionResult GetHistory(string repoName)
     {
+        var repoPath = Path.Combine(_reposRootPath, repoName);
         var commitHistory = new List<string>();
 
-        using (var repo = new Repository(_repoPath))
+        try
         {
-            foreach (var commit in repo.Commits)
+            using (var repo = new Repository(repoPath))
             {
-                commitHistory.Add($"{commit.Id} - {commit.Message} - {commit.Author.When}");
+                foreach (var commit in repo.Commits)
+                {
+                    commitHistory.Add($"{commit.Id} - {commit.Message} - {commit.Author.When}");
+                }
             }
-        }
 
-        return Ok(commitHistory);
+            return Ok(commitHistory);
+        }
+        catch (RepositoryNotFoundException)
+        {
+            return BadRequest("Repository not found. Initialize the repository first.");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
+    }
+
+    [HttpGet("repositories")]
+    public IActionResult ListRepositories()
+    {
+        try
+        {
+            if (!Directory.Exists(_reposRootPath))
+            {
+                return Ok(new List<string>()); // Return empty list if directory doesn't exist
+            }
+
+            var repos = Directory.GetDirectories(_reposRootPath)
+                .Where(dir => Repository.IsValid(dir))
+                .Select(Path.GetFileName)
+                .ToList();
+
+            return Ok(repos);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"An error occurred: {ex.Message}");
+        }
     }
 }
 
