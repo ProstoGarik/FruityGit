@@ -46,7 +46,8 @@ namespace FruityGitDesktop
                 using (var fileContent = new StreamContent(fileStream))
                 {
                     content.Add(fileContent, "file", System.IO.Path.GetFileName(selectedFlpPath));
-                    content.Add(new StringContent(InputTextBox.Text), "message");
+                    content.Add(new StringContent(SummaryInputTextBox.Text), "summary");
+                    content.Add(new StringContent(DescriptionInputTextBox.Text), "description");
                     content.Add(new StringContent("BasePC"), "userName");
                     content.Add(new StringContent("temp@mail.com"), "userEmail");
 
@@ -100,12 +101,10 @@ namespace FruityGitDesktop
 
             try
             {
-                // Send request to create repository
                 var response = await httpClient.PostAsJsonAsync(
                     $"{serverPath}/api/git/{repoCreateName}/init",
                     string.Empty);
 
-                // Replace the success handling code with:
                 if (response.IsSuccessStatusCode)
                 {
                     await RefreshRepositoryList();
@@ -159,63 +158,42 @@ namespace FruityGitDesktop
                 {
                     MessageBox.Show($"No commits found in repository '{selectedRepo}'.",
                                   "Commit History", MessageBoxButton.OK, MessageBoxImage.Information);
+                    CommitsListBox.ItemsSource = null;
                     return;
                 }
 
-                // Create a more detailed display of all commits
-                var commitDetails = new StringBuilder();
-                commitDetails.AppendLine($"Repository: {selectedRepo}");
-                commitDetails.AppendLine($"Total Commits: {commitHistory.Count}");
-                commitDetails.AppendLine();
-                commitDetails.AppendLine("Commit History:");
-                commitDetails.AppendLine("---------------");
-
-                foreach (var commit in commitHistory)
-                {
-                    var commitParts = commit.Split(new[] { " - " }, StringSplitOptions.None);
-
-                    if (commitParts.Length >= 3)
-                    {
-                        commitDetails.AppendLine($"ID: {commitParts[0]}");
-                        commitDetails.AppendLine($"Message: {commitParts[1]}");
-                        commitDetails.AppendLine($"Date: {commitParts[2]}");
-                        commitDetails.AppendLine("---------------");
-                    }
-                    else
-                    {
-                        commitDetails.AppendLine(commit);
-                        commitDetails.AppendLine("---------------");
-                    }
-                }
-
-                // Show in a scrollable dialog instead of MessageBox
-                var dialog = new Window
-                {
-                    Title = $"Commit History for {selectedRepo}",
-                    Content = new ScrollViewer
-                    {
-                        Content = new TextBlock
-                        {
-                            Text = commitDetails.ToString(),
-                            TextWrapping = TextWrapping.Wrap,
-                            Margin = new Thickness(10),
-                            FontFamily = new FontFamily("Consolas")
-                        },
-                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-                    },
-                    Width = 600,
-                    Height = 400,
-                    WindowStartupLocation = WindowStartupLocation.CenterOwner
-                };
-
-                dialog.ShowDialog();
+                // Display the commits in the right upper list box
+                CommitsListBox.ItemsSource = commitHistory;
+                CommitDetailsTextBox.Text = $"Repository: {selectedRepo}\nTotal Commits: {commitHistory.Count}";
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"An error occurred: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
 
+        private void CommitsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CommitsListBox.SelectedItem == null) return;
+
+            var selectedCommit = CommitsListBox.SelectedItem.ToString();
+            var commitParts = selectedCommit.Split(new[] { " - " }, StringSplitOptions.None);
+
+            var commitDetails = new StringBuilder();
+
+            if (commitParts.Length >= 3)
+            {
+                commitDetails.AppendLine($"Commit ID: {commitParts[0]}");
+                commitDetails.AppendLine($"Message: {commitParts[1]}");
+                commitDetails.AppendLine($"Date: {commitParts[2]}");
+            }
+            else
+            {
+                commitDetails.AppendLine(selectedCommit);
+            }
+
+            CommitDetailsTextBox.Text = commitDetails.ToString();
         }
         private async Task RefreshRepositoryList()
         {

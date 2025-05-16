@@ -66,8 +66,10 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
 
                 Commands.Stage(repo, filePath);
 
+                string commitMessage = $"{request.Summary}\n\n{request.Description}";
+
                 var signature = new Signature(request.UserName, request.UserEmail, DateTimeOffset.Now);
-                repo.Commit(request.Message, signature, signature);
+                repo.Commit(commitMessage, signature, signature);
 
                 return Ok("Commit created.");
             }
@@ -132,11 +134,65 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
             return StatusCode(500, $"An error occurred: {ex.Message}");
         }
     }
+
+    [HttpDelete("{repoName}")]
+    public IActionResult DeleteRepository(string repoName)
+    {
+        var logger = HttpContext.RequestServices.GetRequiredService<ILogger<GitController>>();
+        var repoPath = Path.Combine(_reposRootPath, repoName);
+
+        logger.LogInformation($"Attempting to delete repository: {repoName} at path: {repoPath}");
+
+        try
+        {
+            if (!Directory.Exists(repoPath) || !Repository.IsValid(repoPath))
+            {
+                logger.LogWarning($"Repository {repoName} not found or invalid");
+                return NotFound($"Repository {repoName} not found or invalid");
+            }
+
+            using (var repo = new Repository(repoPath))
+            {
+                var status = repo.RetrieveStatus();
+                if (!status.IsDirty)
+                {
+                    logger.LogWarning($"Repository {repoName} has uncommitted changes");
+                    return BadRequest("Cannot delete repository with uncommitted changes");
+                }
+            }
+
+            Directory.Delete(repoPath, recursive: true);
+
+            logger.LogInformation($"Successfully deleted repository: {repoName}");
+            return Ok($"Repository {repoName} deleted successfully");
+        }
+        catch (LibGit2SharpException ex)
+        {
+            logger.LogError($"Git error deleting repository {repoName}: {ex}");
+            return StatusCode(500, $"Git error deleting repository: {ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            logger.LogError($"IO error deleting repository {repoName}: {ex}");
+            return StatusCode(500, $"IO error deleting repository: {ex.Message}");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            logger.LogError($"Permission error deleting repository {repoName}: {ex}");
+            return StatusCode(403, $"Permission denied: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError($"Unexpected error deleting repository {repoName}: {ex}");
+            return StatusCode(500, $"Unexpected error: {ex.Message}");
+        }
+    }
 }
 
 public class CommitRequest
 {
-    public string Message { get; set; }
+    public string Summary { get; set; }
+    public string Description { get; set; }
     public string UserName { get; set; }
     public string UserEmail { get; set; }
     public IFormFile File { get; set; }

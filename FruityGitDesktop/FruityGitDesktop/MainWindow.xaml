@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FruityGitDesktop"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
@@ -19,14 +20,17 @@
             <Button Width="300" Height="50" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0 15" Name="AttachFileButton" Click="AttachFileButton_Click">
                 <TextBlock Text="Прикрепить файл"/>
             </Button>
-            <TextBlock Text="Комментарий:" FontSize = "15" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0 70"/>
-            <TextBox Width="300px" Height="50" Name="InputTextBox" VerticalAlignment="Top" Margin="0 95 0 0"/>
-            <Button Width="100" Height="50" Name="SendButton" Click="SendButton_Click" VerticalAlignment="Bottom" Margin="0 0 150 15">
+            <TextBlock Text="Кратко: " FontSize = "15" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="15 70 0 0"/>
+            <TextBox Width="295px" Height="25" Name="SummaryInputTextBox" VerticalAlignment="Top" Margin="55 70 0 0"/>
+            <TextBox Width="350px" Height="50" Name="DescriptionInputTextBox" VerticalAlignment="Top" Margin="0 100 0 0"
+                     materialDesign:HintAssist.Hint="Description" 
+                     materialDesign:HintAssist.Foreground="Gray"/>
+            <Button Width="100" Height="50" Name="SendButton" Click="SendButton_Click" VerticalAlignment="Bottom" Margin="0 0 150 10">
                 <TextBlock Text="Отправить"/>
             </Button>
         </Grid>
         <Grid Grid.Row="1" Grid.Column="0">
-            <TextBlock Text="Название:" FontSize = "15" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="15 0 0 70"/>
+            <TextBlock Text="Название:" FontSize = "15" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="15 0 0 70" />
             <TextBox Name="RepoNameTextBox" Width="200px" Height="50"  VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="15"/>
             <Button x:Name="CreateRepoButton" Width="150" Height="50" HorizontalAlignment="Right" VerticalAlignment="Bottom" Click="CreateRepoButton_Click" Margin="15">
                 <TextBlock Text="Создать репозиторий"/>
@@ -40,7 +44,13 @@
             </Button>
         </Grid>
         <Grid Grid.Column="1" Grid.Row="0">
-            
+            <TextBlock Text="История" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10"/>
+            <ListBox x:Name="CommitsListBox" Margin="10,40,10,10" SelectionChanged="CommitsListBox_SelectionChanged"/>
+        </Grid>
+        <Grid Grid.Column="1" Grid.Row="1">
+            <TextBlock Text="Детали" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10"/>
+            <TextBox x:Name="CommitDetailsTextBox" Margin="10,40,10,10" IsReadOnly="True" 
+                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
         </Grid>
     </Grid>
 </Window>
