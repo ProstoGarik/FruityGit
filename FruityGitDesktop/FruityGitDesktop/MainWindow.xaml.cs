@@ -22,6 +22,8 @@ namespace FruityGitDesktop
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
         private string serverPath = "http://192.168.1.54:8000";
+
+        private List<string> fullCommitHistory;
         public MainWindow()
         {
             InitializeComponent();
@@ -152,9 +154,9 @@ namespace FruityGitDesktop
                     return;
                 }
 
-                var commitHistory = await response.Content.ReadFromJsonAsync<List<string>>();
+                fullCommitHistory = await response.Content.ReadFromJsonAsync<List<string>>();
 
-                if (commitHistory == null || commitHistory.Count == 0)
+                if (fullCommitHistory == null || fullCommitHistory.Count == 0)
                 {
                     MessageBox.Show($"No commits found in repository '{selectedRepo}'.",
                                   "Commit History", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -163,8 +165,22 @@ namespace FruityGitDesktop
                 }
 
                 // Display the commits in the right upper list box
-                CommitsListBox.ItemsSource = commitHistory;
-                CommitDetailsTextBox.Text = $"Repository: {selectedRepo}\nTotal Commits: {commitHistory.Count}";
+                // Display the commits in the right upper list box (showing only messages between "- " and "\n\n")
+                CommitsListBox.ItemsSource = fullCommitHistory
+                    .Select(commit =>
+                    {
+                        int startIndex = commit.IndexOf("- ");
+                        if (startIndex < 0) return commit; // If "- " not found, return full commit
+
+                        int endIndex = commit.IndexOf("\n\n", startIndex);
+                        if (endIndex < 0) return commit.Substring(startIndex + 2); // If "\n\n" not found, return from "- " onwards
+
+                        // Extract substring from after "- " to before "\n\n"
+                        return commit.Substring(startIndex + 2, endIndex - (startIndex + 2));
+                    })
+                    .ToList();
+
+                CommitDetailsTextBox.Text = $"Repository: {selectedRepo}\nTotal Commits: {fullCommitHistory.Count}";
             }
             catch (Exception ex)
             {
@@ -177,21 +193,37 @@ namespace FruityGitDesktop
         {
             if (CommitsListBox.SelectedItem == null) return;
 
-            var selectedCommit = CommitsListBox.SelectedItem.ToString();
-            var commitParts = selectedCommit.Split(new[] { " - " }, StringSplitOptions.None);
-
+            var selectedCommit = fullCommitHistory[CommitsListBox.SelectedIndex].ToString();
             var commitDetails = new StringBuilder();
 
-            if (commitParts.Length >= 3)
+            // Extract Commit ID (before the first "- ")
+            int firstDashIndex = selectedCommit.IndexOf("- ");
+            string commitId = firstDashIndex >= 0
+                ? selectedCommit.Substring(0, firstDashIndex).Trim()
+                : "N/A";
+
+            // Extract Commit Description (between \n\n and the first "- ")
+            int doubleNewlineIndex = selectedCommit.IndexOf("\n\n");
+            string commitDescription = "";
+            if (doubleNewlineIndex >= 0 && firstDashIndex >= 0)
             {
-                commitDetails.AppendLine($"Commit ID: {commitParts[0]}");
-                commitDetails.AppendLine($"Message: {commitParts[1]}");
-                commitDetails.AppendLine($"Date: {commitParts[2]}");
+                int descriptionStart = doubleNewlineIndex + 2; // Skip \n\n
+                int descriptionLength = firstDashIndex - descriptionStart;
+                if (descriptionLength > 0)
+                {
+                    commitDescription = selectedCommit.Substring(descriptionStart, descriptionLength).Trim();
+                }
             }
-            else
-            {
-                commitDetails.AppendLine(selectedCommit);
-            }
+
+            // Extract Commit Date (after last "- ")
+            int lastDashIndex = selectedCommit.LastIndexOf("- ");
+            string commitDate = lastDashIndex >= 0
+                ? selectedCommit.Substring(lastDashIndex + 2).Trim()
+                : "N/A";
+
+            commitDetails.AppendLine($"Commit ID: {commitId}");
+            commitDetails.AppendLine($"Description: {commitDescription}");
+            commitDetails.AppendLine($"Date: {commitDate}");
 
             CommitDetailsTextBox.Text = commitDetails.ToString();
         }
