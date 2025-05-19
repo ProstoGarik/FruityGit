@@ -16,9 +16,19 @@ $input-focus-box-shadow: 0 0 0 0.2rem rgba(88, 166, 255, 0.25);
   $body-color: $body-color
 );
 
-// Custom overrides
 body {
-  color: $body-color; // Ensures all text uses this color
+    color: $body-color;
+}
+
+.navbar {
+    border-bottom: 1px solid $card-border-color !important;
+}
+
+.navbar-brand {
+    color: white !important;
+    &:hover {
+        color: white !important;
+    }
 }
 
 .card {

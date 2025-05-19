@@ -15,6 +15,7 @@
                     @endif
 
                     {{ __('You are logged in!') }}
+                    <div class="mt-3">{{ __('No repositories') }} :(</div>
                 </div>
             </div>
         </div>

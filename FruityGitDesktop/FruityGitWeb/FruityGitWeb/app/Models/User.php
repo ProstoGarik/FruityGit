@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'avatar_url',
     ];
 
     /**
@@ -32,6 +33,7 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
 
     /**
      * The attributes that should be cast.
