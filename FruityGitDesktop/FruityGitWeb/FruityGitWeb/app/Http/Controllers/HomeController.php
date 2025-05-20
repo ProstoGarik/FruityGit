@@ -23,6 +23,7 @@ class HomeController extends Controller
      */
     public function index()
     {
-        return view('home');
+        $repositories = auth()->user()->repositories; // Get repositories for the authenticated user
+        return view('home', compact('repositories'));
     }
 }

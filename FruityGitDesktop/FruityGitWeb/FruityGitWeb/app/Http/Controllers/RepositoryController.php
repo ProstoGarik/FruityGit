@@ -24,6 +24,6 @@ class RepositoryController extends Controller
             'is_private' => $validated['is_private'] ?? false
         ]);
 
-        return redirect()->route('dashboard')->with('status', 'Repository created successfully!');
+        return redirect()->route('home')->with('status', 'Repository created successfully!');
     }
 }

@@ -8,4 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 class Repository extends Model
 {
     use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'is_private',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

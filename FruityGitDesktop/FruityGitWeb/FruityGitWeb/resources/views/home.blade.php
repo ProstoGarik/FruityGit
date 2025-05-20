@@ -15,7 +15,22 @@
                     @endif
 
                     {{ __('You are logged in!') }}
-                    <div class="mt-3">{{ __('No repositories') }} :(</div>
+                    <div class="mt-3">
+                        @if(isset($repositories) && $repositories->count() > 0)
+                            {{-- Show repositories list if you have any --}}
+                            @foreach($repositories as $repo)
+                                <div>{{ $repo->name }}</div>
+                            @endforeach
+                        @else
+                            {{ __('No repositories') }} :(
+                        @endif
+                        
+                        <div class="mt-3">
+                            <a href="{{ route('repositories.create') }}" class="btn btn-primary">
+                                {{ __('Create New Repository') }}
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -37,3 +37,4 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/repositories/create', [RepositoryController::class, 'create'])->name('repositories.create');
     Route::post('/repositories', [RepositoryController::class, 'store'])->name('repositories.store');
 });
+
