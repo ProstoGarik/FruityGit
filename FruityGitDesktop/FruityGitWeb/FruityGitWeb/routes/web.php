@@ -2,8 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\RepositoryController;
+use App\Http\Controllers\{ProfileController, RepositoryController};
 
 
 /*
@@ -34,7 +33,11 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
     Route::get('/repositories/create', [RepositoryController::class, 'create'])->name('repositories.create');
     Route::post('/repositories', [RepositoryController::class, 'store'])->name('repositories.store');
 });
+
+
+Auth::routes(['verify' => true]);
 
