@@ -66,7 +66,7 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
 
                 Commands.Stage(repo, filePath);
 
-                string commitMessage = $"{request.Summary}_summEnd_{request.Description}";
+                string commitMessage = $"{request.Summary} _summEnd_ {request.Description}";
 
                 var signature = new Signature(request.UserName, request.UserEmail, DateTimeOffset.Now);
                 repo.Commit(commitMessage, signature, signature);
@@ -96,7 +96,7 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
             {
                 foreach (var commit in repo.Commits)
                 {
-                    commitHistory.Add($"{commit.Id}_idEnd_{commit.Message}_descEnd_{commit.Author.When}");
+                    commitHistory.Add($"{commit.Id} _idEnd_ {commit.Author.Name} _usEnd_ {commit.Message} _descEnd_ {commit.Author.When}");
                 }
             }
 
@@ -151,15 +151,15 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
                 return NotFound($"Repository {repoName} not found or invalid");
             }
 
-            using (var repo = new Repository(repoPath))
-            {
-                var status = repo.RetrieveStatus();
-                if (!status.IsDirty)
-                {
-                    logger.LogWarning($"Repository {repoName} has uncommitted changes");
-                    return BadRequest("Cannot delete repository with uncommitted changes");
-                }
-            }
+            //using (var repo = new Repository(repoPath))
+            //{
+            //    var status = repo.RetrieveStatus();
+            //    if (!status.IsDirty)
+            //    {
+            //        logger.LogWarning($"Repository {repoName} has uncommitted changes");
+            //        return BadRequest("Cannot delete repository with uncommitted changes");
+            //    }
+            //}
 
             Directory.Delete(repoPath, recursive: true);
 
