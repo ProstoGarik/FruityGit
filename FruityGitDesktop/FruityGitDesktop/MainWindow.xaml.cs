@@ -21,7 +21,7 @@ namespace FruityGitDesktop
     {
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
-        private string serverPath = "http://192.168.1.54:8000";
+        private string serverPath = "http://192.168.135.58:8000";
 
         private List<string> fullCommitHistory;
         public MainWindow()
@@ -164,19 +164,17 @@ namespace FruityGitDesktop
                     return;
                 }
 
-                // Display the commits in the right upper list box
-                // Display the commits in the right upper list box (showing only messages between "- " and "\n\n")
+                // Display the commits
                 CommitsListBox.ItemsSource = fullCommitHistory
                     .Select(commit =>
                     {
-                        int startIndex = commit.IndexOf("- ");
-                        if (startIndex < 0) return commit; // If "- " not found, return full commit
+                        int startIndex = commit.IndexOf("_usEnd_");
+                        if (startIndex < 0) return commit;
 
-                        int endIndex = commit.IndexOf("\n\n", startIndex);
-                        if (endIndex < 0) return commit.Substring(startIndex + 2); // If "\n\n" not found, return from "- " onwards
+                        int endIndex = commit.IndexOf("_summEnd_", startIndex);
+                        if (endIndex < 0) return commit.Substring(startIndex + 7);
 
-                        // Extract substring from after "- " to before "\n\n"
-                        return commit.Substring(startIndex + 2, endIndex - (startIndex + 2));
+                        return commit.Substring(startIndex + 7, endIndex - (startIndex + 7));
                     })
                     .ToList();
 
@@ -196,32 +194,35 @@ namespace FruityGitDesktop
             var selectedCommit = fullCommitHistory[CommitsListBox.SelectedIndex].ToString();
             var commitDetails = new StringBuilder();
 
-            // Extract Commit ID (before the first "- ")
-            int firstDashIndex = selectedCommit.IndexOf("- ");
-            string commitId = firstDashIndex >= 0
-                ? selectedCommit.Substring(0, firstDashIndex).Trim()
+            int idEndIndex = selectedCommit.IndexOf("_idEnd_");
+            string commitId = idEndIndex >= 0
+                ? selectedCommit.Substring(0, idEndIndex).Trim()
                 : "N/A";
 
-            // Extract Commit Description (between \n\n and the first "- ")
-            int doubleNewlineIndex = selectedCommit.IndexOf("\n\n");
+            int userEndIndex = selectedCommit.IndexOf("_usEnd_");
+            string commitUser = idEndIndex >= 0
+                ? selectedCommit.Substring(idEndIndex + 7, userEndIndex-(idEndIndex + 7)).Trim()
+                : "N/A";
+
+            int summaryEndIndex = selectedCommit.IndexOf("_summEnd_");
             string commitDescription = "";
-            if (doubleNewlineIndex >= 0 && firstDashIndex >= 0)
+            if (summaryEndIndex >= 0 && idEndIndex >= 0)
             {
-                int descriptionStart = doubleNewlineIndex + 2; // Skip \n\n
-                int descriptionLength = firstDashIndex - descriptionStart;
+                int descriptionStart = summaryEndIndex + 9;
+                int descriptionLength = descriptionStart - summaryEndIndex;
                 if (descriptionLength > 0)
                 {
                     commitDescription = selectedCommit.Substring(descriptionStart, descriptionLength).Trim();
                 }
             }
 
-            // Extract Commit Date (after last "- ")
-            int lastDashIndex = selectedCommit.LastIndexOf("- ");
-            string commitDate = lastDashIndex >= 0
-                ? selectedCommit.Substring(lastDashIndex + 2).Trim()
+            int descriptionEndIndex = selectedCommit.LastIndexOf("_descEnd_");
+            string commitDate = descriptionEndIndex >= 0
+                ? selectedCommit.Substring(descriptionEndIndex + 9).Trim()
                 : "N/A";
 
             commitDetails.AppendLine($"Commit ID: {commitId}");
+            commitDetails.AppendLine($"User: {commitDescription}");
             commitDetails.AppendLine($"Description: {commitDescription}");
             commitDetails.AppendLine($"Date: {commitDate}");
 
