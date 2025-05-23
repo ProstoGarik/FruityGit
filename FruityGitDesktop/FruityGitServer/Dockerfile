@@ -1,4 +1,8 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS build
+ENV DOTNET_NUGET_SIGNATURE_VERIFICATION=false
+ENV DOTNET_USE_POLLING_FILE_WATCHER=false
+ENV NUGET_XMLDOC_MODE=skip
+ENV NUGET_CERT_REVOCATION_MODE=offline
 WORKDIR /src
 
 

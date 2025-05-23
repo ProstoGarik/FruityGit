@@ -66,7 +66,7 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
 
                 Commands.Stage(repo, filePath);
 
-                string commitMessage = $"{request.Summary}\n\n{request.Description}";
+                string commitMessage = $"{request.Summary}_summEnd_{request.Description}";
 
                 var signature = new Signature(request.UserName, request.UserEmail, DateTimeOffset.Now);
                 repo.Commit(commitMessage, signature, signature);
@@ -96,7 +96,7 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
             {
                 foreach (var commit in repo.Commits)
                 {
-                    commitHistory.Add($"{commit.Id} - {commit.Message} - {commit.Author.When}");
+                    commitHistory.Add($"{commit.Id}_idEnd_{commit.Message}_descEnd_{commit.Author.When}");
                 }
             }
 
