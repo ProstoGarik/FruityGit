@@ -24,6 +24,6 @@ class HomeController extends Controller
     public function index()
     {
         $repositories = auth()->user()->repositories; // Get repositories for the authenticated user
-        return view('home', compact('repositories'));
+        return view('dashboard', compact('repositories'));
     }
 }

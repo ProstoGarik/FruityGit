@@ -39,7 +39,7 @@ class WebAuthController extends Controller
                 return redirect($callback . '?token=' . urlencode($token));
             }
 
-            return redirect()->intended('dashboard');
+            return redirect(RouteServiceProvider::HOME);
         }
 
         return back()->withErrors([

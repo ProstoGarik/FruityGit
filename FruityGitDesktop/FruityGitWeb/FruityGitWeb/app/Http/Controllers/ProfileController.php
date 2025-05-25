@@ -2,16 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class ProfileController extends Controller
 {
-    public function show()
+    public function show(User $user = null)
     {
-        // Get the authenticated user with their repositories
-        $user = auth()->user()->load('repositories');
+        // If no user is provided, show the authenticated user's profile
+        $user = $user ?? auth()->user();
         
-        return view('profile.show', compact('user'));
+        // Load the user's repositories
+        $repositories = $user->repositories()
+            ->latest()
+            ->get();
+
+        return view('profile.show', [
+            'user' => $user,
+            'repositories' => $repositories,
+            'isOwnProfile' => $user->id === auth()->id()
+        ]);
     }
 
     public function getAvatarUrlAttribute()

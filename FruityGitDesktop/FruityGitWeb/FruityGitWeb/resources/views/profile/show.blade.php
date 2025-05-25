@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Profile')
+@section('title', $user->name . "'s Profile")
 
 @section('content')
 <div class="container py-5">
@@ -14,7 +14,7 @@
                          class="rounded-circle mb-3" 
                          width="150" 
                          height="150" 
-                         alt="Profile Picture">
+                         alt="{{ $user->name }}'s Profile Picture">
                     
                     <!-- User Name -->
                     <h2 class="card-title">{{ $user->name }}</h2>
@@ -22,7 +22,12 @@
                     <!-- Additional info -->
                     <div class="mt-4">
                         <p class="text-muted mb-1">Member since {{ $user->created_at->format('M Y') }}</p>
-                        <p class="text-muted mb-1">{{ $user->email }}</p>
+                        @if($isOwnProfile)
+                            <p class="text-muted mb-3">{{ $user->email }}</p>
+                            <a href="{{ route('account.settings') }}" class="btn btn-outline-info w-100">
+                                <i class="fas fa-cog me-2"></i>Account Settings
+                            </a>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -32,15 +37,23 @@
         <div class="col-md-8">
             <div class="card bg-dark text-white border-secondary">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="mb-0">My Repositories</h3>
-                    <a href="{{ route('repositories.create') }}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus"></i> New Repository
-                    </a>
+                    <h3 class="mb-0">
+                        @if($isOwnProfile)
+                            My Repositories
+                        @else
+                            {{ $user->name }}'s Repositories
+                        @endif
+                    </h3>
+                    @if($isOwnProfile)
+                        <a href="{{ route('repositories.create') }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> New Repository
+                        </a>
+                    @endif
                 </div>
                 <div class="card-body">
-                    @if($user->repositories->count() > 0)
+                    @if($repositories->count() > 0)
                         <div class="list-group bg-dark">
-                            @foreach($user->repositories as $repository)
+                            @foreach($repositories as $repository)
                                 <div class="list-group-item bg-dark text-white border-secondary mb-2">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
@@ -69,10 +82,18 @@
                     @else
                         <div class="text-center py-4">
                             <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
-                            <p class="text-muted">No repositories yet</p>
-                            <a href="{{ route('repositories.create') }}" class="btn btn-primary">
-                                Create your first repository
-                            </a>
+                            <p class="text-muted">
+                                @if($isOwnProfile)
+                                    No repositories yet
+                                @else
+                                    {{ $user->name }} hasn't created any repositories yet
+                                @endif
+                            </p>
+                            @if($isOwnProfile)
+                                <a href="{{ route('repositories.create') }}" class="btn btn-primary">
+                                    Create your first repository
+                                </a>
+                            @endif
                         </div>
                     @endif
                 </div>

@@ -1,1 +1,5 @@
-import './bootstrap'; // If you have this file
+import './bootstrap';
+import * as bootstrap from 'bootstrap';
+
+// Make bootstrap available globally
+window.bootstrap = bootstrap;

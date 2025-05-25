@@ -11,7 +11,17 @@ class Repository extends Model
 
     protected $fillable = [
         'name',
+        'description',
         'is_private',
+        'user_id'
+    ];
+
+    protected $attributes = [
+        'is_private' => false // Default to public
+    ];
+
+    protected $casts = [
+        'is_private' => 'boolean'
     ];
 
     public function user()
