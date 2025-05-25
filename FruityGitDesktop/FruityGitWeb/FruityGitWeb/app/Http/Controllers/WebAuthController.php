@@ -8,6 +8,17 @@ use App\Providers\RouteServiceProvider;
 
 class WebAuthController extends Controller
 {
+    public function checkAuth()
+    {
+        if (Auth::check()) {
+            return response()->json([
+                'name' => Auth::user()->name,
+                'email' => Auth::user()->email
+            ]);
+        }
+        return response()->json(null, 401);
+    }
+
     public function login(Request $request)
     {
         $credentials = $request->validate([

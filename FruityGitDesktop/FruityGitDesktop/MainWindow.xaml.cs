@@ -1,38 +1,29 @@
-﻿using System.Net.Http;
+﻿using System;
+using System.Collections.Generic;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Diagnostics;
-using static System.Net.WebRequestMethods;
 
 namespace FruityGitDesktop
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
-        private string serverPath = "http://192.168.135.58:8000";
-        private string webAppPath = "http://localhost:8080"; // Web app URL
+        private string serverPath = "http://192.168.135.54:8000";
+        private string webAppPath = "http://127.0.0.1:8000";
         private string userToken;
         private string userName;
         private string userEmail;
-
         private List<string> fullCommitHistory;
+
         public MainWindow()
         {
             InitializeComponent();
             httpClient = new HttpClient();
+            httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
             selectedFlpPath = string.Empty;
             UpdateLoginState(false);
         }
@@ -42,7 +33,6 @@ namespace FruityGitDesktop
             if (isLoggedIn)
             {
                 LoginButton.Content = new TextBlock { Text = userName ?? "Logged In" };
-                // Enable functionality that requires login
                 AttachFileButton.IsEnabled = true;
                 SendButton.IsEnabled = true;
                 CreateRepoButton.IsEnabled = true;
@@ -53,42 +43,27 @@ namespace FruityGitDesktop
                 userToken = null;
                 userName = null;
                 userEmail = null;
-                // Disable functionality that requires login
                 AttachFileButton.IsEnabled = false;
                 SendButton.IsEnabled = false;
                 CreateRepoButton.IsEnabled = false;
             }
         }
 
-        public async void HandleLoginCallback(string token)
+        private void LoginButton_Click(object sender, RoutedEventArgs e)
         {
-            try
+            var loginWindow = new LoginWindow(serverPath);
+            if (loginWindow.ShowDialog() == true)
             {
-                userToken = token;
-                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var user = loginWindow.LoggedInUser;
+                userToken = user.Token;
+                userName = user.Name;
+                userEmail = user.Email;
                 
-                // Get user information from the server
-                var response = await httpClient.GetAsync($"{serverPath}/api/user");
-                if (response.IsSuccessStatusCode)
-                {
-                    var userInfo = await response.Content.ReadFromJsonAsync<UserInfo>();
-                    userName = userInfo.Name;
-                    userEmail = userInfo.Email;
-                    UpdateLoginState(true);
-                    
-                    // Refresh the repository list with the user's repositories
-                    await RefreshRepositoryList();
-                }
-                else
-                {
-                    MessageBox.Show("Failed to get user information", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    UpdateLoginState(false);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Login error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                UpdateLoginState(false);
+                httpClient.DefaultRequestHeaders.Authorization = 
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", userToken);
+                
+                UpdateLoginState(true);
+                RefreshRepositoryList();
             }
         }
 
@@ -111,8 +86,8 @@ namespace FruityGitDesktop
                     content.Add(fileContent, "file", System.IO.Path.GetFileName(selectedFlpPath));
                     content.Add(new StringContent(SummaryInputTextBox.Text), "summary");
                     content.Add(new StringContent(DescriptionInputTextBox.Text), "description");
-                    content.Add(new StringContent("BasePC"), "userName");
-                    content.Add(new StringContent("temp@mail.com"), "userEmail");
+                    content.Add(new StringContent(userName), "userName");
+                    content.Add(new StringContent(userEmail), "userEmail");
 
                     var response = await httpClient.PostAsync($"{serverPath}/api/git/{selectedRepo}/commit", content);
 
@@ -139,14 +114,12 @@ namespace FruityGitDesktop
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
                 Filter = "FLP Files (*.flp)|*.flp",
-                Title = "Выберите .flp файл"
+                Title = "Select .flp file"
             };
 
             if (openFileDialog.ShowDialog() == true)
             {
-                string selectedFilePath = openFileDialog.FileName;
-
-                selectedFlpPath = selectedFilePath;
+                selectedFlpPath = openFileDialog.FileName;
             }
         }
 
@@ -154,7 +127,6 @@ namespace FruityGitDesktop
         {
             string repoCreateName = RepoNameTextBox.Text.Trim();
 
-            // Validate repository name
             if (string.IsNullOrWhiteSpace(repoCreateName))
             {
                 MessageBox.Show("Please enter a repository name", "Error",
@@ -194,7 +166,6 @@ namespace FruityGitDesktop
         {
             try
             {
-                // Check if a repository is selected
                 if (ReposListBox.SelectedItem == null)
                 {
                     MessageBox.Show("Please select a repository first.", "No Repository Selected",
@@ -203,8 +174,6 @@ namespace FruityGitDesktop
                 }
 
                 string selectedRepo = ReposListBox.SelectedItem.ToString();
-
-                // Make request to get history for the selected repository
                 var response = await httpClient.GetAsync($"{serverPath}/api/git/{selectedRepo}/history");
 
                 if (!response.IsSuccessStatusCode)
@@ -225,7 +194,6 @@ namespace FruityGitDesktop
                     return;
                 }
 
-                // Display the commits
                 CommitsListBox.ItemsSource = fullCommitHistory
                     .Select(commit =>
                     {
@@ -289,6 +257,7 @@ namespace FruityGitDesktop
 
             CommitDetailsTextBox.Text = commitDetails.ToString();
         }
+
         private async Task RefreshRepositoryList()
         {
             try
@@ -315,30 +284,5 @@ namespace FruityGitDesktop
         {
             await RefreshRepositoryList();
         }
-
-        private void LoginButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var callbackUri = ProtocolHandler.CreateLoginCallbackUri();
-                // Open the web login page with the callback URI
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = $"{webAppPath}/login?callback={Uri.EscapeDataString(callbackUri.ToString())}",
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to open login page: {ex.Message}", 
-                              "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-    }
-
-    public class UserInfo
-    {
-        public string Name { get; set; }
-        public string Email { get; set; }
     }
 }
