@@ -8,8 +8,8 @@ class ProfileController extends Controller
 {
     public function show()
     {
-        // Get the authenticated user
-        $user = auth()->user();
+        // Get the authenticated user with their repositories
+        $user = auth()->user()->load('repositories');
         
         return view('profile.show', compact('user'));
     }

@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Diagnostics;
 using static System.Net.WebRequestMethods;
 
 namespace FruityGitDesktop
@@ -22,6 +23,10 @@ namespace FruityGitDesktop
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
         private string serverPath = "http://192.168.135.58:8000";
+        private string webAppPath = "http://localhost:8080"; // Web app URL
+        private string userToken;
+        private string userName;
+        private string userEmail;
 
         private List<string> fullCommitHistory;
         public MainWindow()
@@ -29,6 +34,62 @@ namespace FruityGitDesktop
             InitializeComponent();
             httpClient = new HttpClient();
             selectedFlpPath = string.Empty;
+            UpdateLoginState(false);
+        }
+
+        private void UpdateLoginState(bool isLoggedIn)
+        {
+            if (isLoggedIn)
+            {
+                LoginButton.Content = new TextBlock { Text = userName ?? "Logged In" };
+                // Enable functionality that requires login
+                AttachFileButton.IsEnabled = true;
+                SendButton.IsEnabled = true;
+                CreateRepoButton.IsEnabled = true;
+            }
+            else
+            {
+                LoginButton.Content = new TextBlock { Text = "Login" };
+                userToken = null;
+                userName = null;
+                userEmail = null;
+                // Disable functionality that requires login
+                AttachFileButton.IsEnabled = false;
+                SendButton.IsEnabled = false;
+                CreateRepoButton.IsEnabled = false;
+            }
+        }
+
+        public async void HandleLoginCallback(string token)
+        {
+            try
+            {
+                userToken = token;
+                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                
+                // Get user information from the server
+                var response = await httpClient.GetAsync($"{serverPath}/api/user");
+                if (response.IsSuccessStatusCode)
+                {
+                    var userInfo = await response.Content.ReadFromJsonAsync<UserInfo>();
+                    userName = userInfo.Name;
+                    userEmail = userInfo.Email;
+                    UpdateLoginState(true);
+                    
+                    // Refresh the repository list with the user's repositories
+                    await RefreshRepositoryList();
+                }
+                else
+                {
+                    MessageBox.Show("Failed to get user information", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    UpdateLoginState(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Login error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                UpdateLoginState(false);
+            }
         }
 
         private async void SendButton_Click(object sender, RoutedEventArgs e)
@@ -254,5 +315,30 @@ namespace FruityGitDesktop
         {
             await RefreshRepositoryList();
         }
+
+        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var callbackUri = ProtocolHandler.CreateLoginCallbackUri();
+                // Open the web login page with the callback URI
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = $"{webAppPath}/login?callback={Uri.EscapeDataString(callbackUri.ToString())}",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to open login page: {ex.Message}", 
+                              "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    public class UserInfo
+    {
+        public string Name { get; set; }
+        public string Email { get; set; }
     }
 }
