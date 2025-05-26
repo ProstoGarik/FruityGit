@@ -1,4 +1,5 @@
 ﻿using FruityGitServer;
+using FruityGitServer.Models;
 using Microsoft.EntityFrameworkCore;
 
 public class AppDbContext : DbContext
@@ -9,6 +10,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Message> Messages { get; set; }
+    public DbSet<User> Users { get; set; }
 
     // Удалите метод OnConfiguring, так как конфигурация теперь передаётся через конструктор
 }
