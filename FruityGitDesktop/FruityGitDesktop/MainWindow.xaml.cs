@@ -12,7 +12,7 @@ namespace FruityGitDesktop
     {
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
-        private string serverPath = "http://192.168.135.54:8000";
+        private string serverPath = "http://192.168.1.54:8000";
         private string userToken;
         private string userName;
         private string userEmail;

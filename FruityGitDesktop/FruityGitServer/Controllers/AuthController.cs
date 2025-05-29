@@ -6,6 +6,7 @@ using FruityGitServer.Models;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+using System.Text.Json.Serialization;
 
 namespace FruityGitServer.Controllers
 {
@@ -64,7 +65,8 @@ namespace FruityGitServer.Controllers
                 {
                     Name = user.Name,
                     Email = user.Email
-                }
+                },
+                RedirectUrl = "/dashboard"
             });
         }
 
@@ -109,15 +111,28 @@ namespace FruityGitServer.Controllers
 
     public class LoginResponse
     {
+        [JsonPropertyName("access_token")]
         public string AccessToken { get; set; }
+
+        [JsonPropertyName("token_type")]
         public string TokenType { get; set; }
+
+        [JsonPropertyName("expires_in")]
         public int ExpiresIn { get; set; }
+
+        [JsonPropertyName("user")]
         public UserInfo User { get; set; }
+
+        [JsonPropertyName("redirect_url")]
+        public string RedirectUrl { get; set; }
     }
 
     public class UserInfo
     {
+        [JsonPropertyName("name")]
         public string Name { get; set; }
+
+        [JsonPropertyName("email")]
         public string Email { get; set; }
     }
 } 
