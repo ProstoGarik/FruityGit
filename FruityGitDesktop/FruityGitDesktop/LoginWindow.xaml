@@ -4,15 +4,10 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FruityGitDesktop"
-        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="Login to FruityGit" Height="300" Width="400"
         WindowStartupLocation="CenterScreen"
-        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-        Background="{DynamicResource MaterialDesignPaper}"
-        TextElement.FontWeight="Regular"
-        TextElement.FontSize="13"
-        FontFamily="{materialDesign:MaterialDesignFont}">
+        Background="White">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -30,19 +25,20 @@
 
         <TextBox Grid.Row="1"
                  x:Name="EmailTextBox"
-                 materialDesign:HintAssist.Hint="Email"
-                 Style="{StaticResource MaterialDesignFilledTextBox}"
+                 Style="{StaticResource DefaultTextBoxStyle}"
+                 ToolTip="Email"
                  Margin="0,5"/>
 
         <PasswordBox Grid.Row="2"
                      x:Name="PasswordBox"
-                     materialDesign:HintAssist.Hint="Password"
-                     Style="{StaticResource MaterialDesignFilledPasswordBox}"
+                     Style="{StaticResource DefaultPasswordBoxStyle}"
+                     ToolTip="Password"
                      Margin="0,5"/>
 
         <Button Grid.Row="3"
+                x:Name="LoginButton"
+                Style="{StaticResource DefaultButtonStyle}"
                 Content="Login"
-                Style="{StaticResource MaterialDesignRaisedButton}"
                 Height="40"
                 Margin="0,20,0,0"
                 Click="LoginButton_Click"/>

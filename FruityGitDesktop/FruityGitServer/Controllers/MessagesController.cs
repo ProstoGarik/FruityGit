@@ -1,57 +1,96 @@
-﻿using LibGit2Sharp;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using FruityGitServer.Models;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using LibGit2Sharp;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
 [ApiController]
 [Route("api/git")]
-public class GitController(IWebHostEnvironment env) : ControllerBase
+[Authorize]
+public class GitController : ControllerBase
 {
-    private readonly string _reposRootPath = Path.Combine(env.ContentRootPath, "ReposFolder");
+    private readonly string _reposRootPath;
+    private readonly AppDbContext _context;
+    private readonly ILogger<GitController> _logger;
+
+    public GitController(IWebHostEnvironment env, AppDbContext context, ILogger<GitController> logger)
+    {
+        _reposRootPath = Path.Combine(env.ContentRootPath, "ReposFolder");
+        _context = context;
+        _logger = logger;
+    }
 
     [HttpPost("{repoName}/init")]
-    public IActionResult InitializeRepository(string repoName)
+    public async Task<IActionResult> InitializeRepository(string repoName)
     {
-        var logger = HttpContext.RequestServices.GetRequiredService<ILogger<GitController>>();
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-
-        logger.LogInformation($"Attempting to initialize repository at: {repoPath}");
+        _logger.LogInformation($"Attempting to initialize repository at: {repoName}");
 
         try
         {
+            // Get the current user's ID
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            // Check if the repository exists in the database
+            var gitRepository = await _context.Repositories
+                .FirstOrDefaultAsync(r => r.Name == repoName && r.UserId == userId);
+
+            if (gitRepository == null)
+            {
+                _logger.LogWarning($"Repository {repoName} not found in database");
+                return NotFound($"Repository {repoName} not found in database");
+            }
+
+            var repoPath = Path.Combine(_reposRootPath, repoName);
             Directory.CreateDirectory(_reposRootPath);
 
-            if (Repository.IsValid(repoPath))
+            if (LibGit2Sharp.Repository.IsValid(repoPath))
             {
-                logger.LogInformation("Repository already exists");
+                _logger.LogInformation("Repository already exists");
                 return BadRequest("Repository already exists.");
             }
 
             if (Directory.Exists(Path.Combine(repoPath, ".git")))
             {
-                logger.LogWarning("Found not valid .git directory. Deleting...");
+                _logger.LogWarning("Found not valid .git directory. Deleting...");
                 Directory.Delete(Path.Combine(repoPath, ".git"), true);
             }
 
-            logger.LogInformation("Initializing new repository...");
-            Repository.Init(repoPath);
+            _logger.LogInformation("Initializing new repository...");
+            LibGit2Sharp.Repository.Init(repoPath);
             return Ok("Repository initialized.");
         }
         catch (Exception ex)
         {
-            logger.LogError($"Error initializing repository: {ex}");
+            _logger.LogError($"Error initializing repository: {ex}");
             return StatusCode(500, $"Error initializing repository: {ex.Message}");
         }
     }
 
     [HttpPost("{repoName}/commit")]
-    public IActionResult Commit(string repoName, [FromForm] CommitRequest request)
+    public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequest request)
     {
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-
         try
         {
-            using (var repo = new Repository(repoPath))
+            // Get the current user's ID
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            // Check if the repository exists in the database
+            var gitRepository = await _context.Repositories
+                .FirstOrDefaultAsync(r => r.Name == repoName && r.UserId == userId);
+
+            if (gitRepository == null)
+            {
+                return NotFound($"Repository {repoName} not found in database");
+            }
+
+            var repoPath = Path.Combine(_reposRootPath, repoName);
+            using (var repo = new LibGit2Sharp.Repository(repoPath))
             {
                 if (request.File == null || request.File.Length == 0)
                 {
@@ -61,7 +100,7 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
                 string filePath = Path.Combine(repoPath, request.File.FileName);
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
-                    request.File.CopyTo(stream);
+                    await request.File.CopyToAsync(stream);
                 }
 
                 Commands.Stage(repo, filePath);
@@ -80,19 +119,32 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError($"Error during commit: {ex}");
             return StatusCode(500, $"An error occurred: {ex.Message}");
         }
     }
 
     [HttpGet("{repoName}/history")]
-    public IActionResult GetHistory(string repoName)
+    public async Task<IActionResult> GetHistory(string repoName)
     {
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-        var commitHistory = new List<string>();
-
         try
         {
-            using (var repo = new Repository(repoPath))
+            // Get the current user's ID
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            // Check if the repository exists in the database
+            var gitRepository = await _context.Repositories
+                .FirstOrDefaultAsync(r => r.Name == repoName && r.UserId == userId);
+
+            if (gitRepository == null)
+            {
+                return NotFound($"Repository {repoName} not found in database");
+            }
+
+            var repoPath = Path.Combine(_reposRootPath, repoName);
+            var commitHistory = new List<string>();
+
+            using (var repo = new LibGit2Sharp.Repository(repoPath))
             {
                 foreach (var commit in repo.Commits)
                 {
@@ -108,82 +160,75 @@ public class GitController(IWebHostEnvironment env) : ControllerBase
         }
         catch (Exception ex)
         {
+            _logger.LogError($"Error getting history: {ex}");
             return StatusCode(500, $"An error occurred: {ex.Message}");
         }
     }
 
     [HttpGet("repositories")]
-    public IActionResult ListRepositories()
+    public async Task<IActionResult> ListRepositories()
     {
         try
         {
-            if (!Directory.Exists(_reposRootPath))
-            {
-                return Ok(new List<string>()); // Return empty list if directory doesn't exist
-            }
+            // Get the current user's ID
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
 
-            var repos = Directory.GetDirectories(_reposRootPath)
-                .Where(dir => Repository.IsValid(dir))
-                .Select(Path.GetFileName)
-                .ToList();
+            // Get repositories from database
+            var repositories = await _context.Repositories
+                .Where(r => r.UserId == userId)
+                .Select(r => r.Name)
+                .ToListAsync();
 
-            return Ok(repos);
+            return Ok(repositories);
         }
         catch (Exception ex)
         {
+            _logger.LogError($"Error listing repositories: {ex}");
             return StatusCode(500, $"An error occurred: {ex.Message}");
         }
     }
 
     [HttpDelete("{repoName}")]
-    public IActionResult DeleteRepository(string repoName)
+    public async Task<IActionResult> DeleteRepository(string repoName)
     {
-        var logger = HttpContext.RequestServices.GetRequiredService<ILogger<GitController>>();
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-
-        logger.LogInformation($"Attempting to delete repository: {repoName} at path: {repoPath}");
-
         try
         {
-            if (!Directory.Exists(repoPath) || !Repository.IsValid(repoPath))
+            // Get the current user's ID
+            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+
+            // Check if the repository exists in the database
+            var gitRepository = await _context.Repositories
+                .FirstOrDefaultAsync(r => r.Name == repoName && r.UserId == userId);
+
+            if (gitRepository == null)
             {
-                logger.LogWarning($"Repository {repoName} not found or invalid");
-                return NotFound($"Repository {repoName} not found or invalid");
+                return NotFound($"Repository {repoName} not found in database");
             }
 
-            //using (var repo = new Repository(repoPath))
-            //{
-            //    var status = repo.RetrieveStatus();
-            //    if (!status.IsDirty)
-            //    {
-            //        logger.LogWarning($"Repository {repoName} has uncommitted changes");
-            //        return BadRequest("Cannot delete repository with uncommitted changes");
-            //    }
-            //}
+            var repoPath = Path.Combine(_reposRootPath, repoName);
 
+            if (!Directory.Exists(repoPath))
+            {
+                _logger.LogWarning($"Repository directory {repoName} not found");
+                // Remove from database even if directory doesn't exist
+                _context.Repositories.Remove(gitRepository);
+                await _context.SaveChangesAsync();
+                return Ok($"Repository {repoName} removed from database");
+            }
+
+            // Delete the physical repository
             Directory.Delete(repoPath, recursive: true);
 
-            logger.LogInformation($"Successfully deleted repository: {repoName}");
+            // Remove from database
+            _context.Repositories.Remove(gitRepository);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation($"Successfully deleted repository: {repoName}");
             return Ok($"Repository {repoName} deleted successfully");
-        }
-        catch (LibGit2SharpException ex)
-        {
-            logger.LogError($"Git error deleting repository {repoName}: {ex}");
-            return StatusCode(500, $"Git error deleting repository: {ex.Message}");
-        }
-        catch (IOException ex)
-        {
-            logger.LogError($"IO error deleting repository {repoName}: {ex}");
-            return StatusCode(500, $"IO error deleting repository: {ex.Message}");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            logger.LogError($"Permission error deleting repository {repoName}: {ex}");
-            return StatusCode(403, $"Permission denied: {ex.Message}");
         }
         catch (Exception ex)
         {
-            logger.LogError($"Unexpected error deleting repository {repoName}: {ex}");
+            _logger.LogError($"Error deleting repository {repoName}: {ex}");
             return StatusCode(500, $"Unexpected error: {ex.Message}");
         }
     }

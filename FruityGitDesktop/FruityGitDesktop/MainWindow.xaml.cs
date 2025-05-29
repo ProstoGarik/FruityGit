@@ -13,7 +13,6 @@ namespace FruityGitDesktop
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
         private string serverPath = "http://192.168.135.54:8000";
-        private string webAppPath = "http://127.0.0.1:8000";
         private string userToken;
         private string userName;
         private string userEmail;
@@ -90,193 +89,180 @@ namespace FruityGitDesktop
                     content.Add(new StringContent(userEmail), "userEmail");
 
                     var response = await httpClient.PostAsync($"{serverPath}/api/git/{selectedRepo}/commit", content);
-
-                    if (!response.IsSuccessStatusCode)
+                    if (response.IsSuccessStatusCode)
                     {
-                        var errorContent = await response.Content.ReadAsStringAsync();
-                        MessageBox.Show(errorContent);
+                        MessageBox.Show("File committed successfully!", "Success",
+                                      MessageBoxButton.OK, MessageBoxImage.Information);
+                        SummaryInputTextBox.Clear();
+                        DescriptionInputTextBox.Clear();
+                        selectedFlpPath = string.Empty;
+                        await RefreshCommitHistory(selectedRepo);
                     }
                     else
                     {
-                        var responseContent = await response.Content.ReadAsStringAsync();
-                        MessageBox.Show(responseContent);
+                        var error = await response.Content.ReadAsStringAsync();
+                        MessageBox.Show($"Error committing file: {error}", "Error",
+                                      MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.ToString());
-            }
-        }
-
-        private void AttachFileButton_Click(object sender, RoutedEventArgs e)
-        {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "FLP Files (*.flp)|*.flp",
-                Title = "Select .flp file"
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-            {
-                selectedFlpPath = openFileDialog.FileName;
+                MessageBox.Show($"Error: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private async void CreateRepoButton_Click(object sender, RoutedEventArgs e)
         {
-            string repoCreateName = RepoNameTextBox.Text.Trim();
-
-            if (string.IsNullOrWhiteSpace(repoCreateName))
-            {
-                MessageBox.Show("Please enter a repository name", "Error",
-                              MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
             try
             {
-                var response = await httpClient.PostAsJsonAsync(
-                    $"{serverPath}/api/git/{repoCreateName}/init",
-                    string.Empty);
-
-                if (response.IsSuccessStatusCode)
+                string repoName = RepoNameTextBox.Text.Trim();
+                if (string.IsNullOrEmpty(repoName))
                 {
-                    await RefreshRepositoryList();
-                    ReposListBox.SelectedItem = repoCreateName;
-                    MessageBox.Show($"Repository '{repoCreateName}' created successfully!",
-                                  "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                    RepoNameTextBox.Text = string.Empty;
-                }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    MessageBox.Show($"Failed to create repository: {errorContent}",
-                                  "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"An error occurred: {ex.Message}",
-                              "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private async void GetButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (ReposListBox.SelectedItem == null)
-                {
-                    MessageBox.Show("Please select a repository first.", "No Repository Selected",
+                    MessageBox.Show("Please enter a repository name.", "Missing Name",
                                   MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                string selectedRepo = ReposListBox.SelectedItem.ToString();
-                var response = await httpClient.GetAsync($"{serverPath}/api/git/{selectedRepo}/history");
-
-                if (!response.IsSuccessStatusCode)
+                var createRequest = new
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    MessageBox.Show($"Error: {errorContent}", "Commit History",
-                                  MessageBoxButton.OK, MessageBoxImage.Error);
-                    return;
-                }
+                    name = repoName,
+                    isPrivate = false
+                };
 
-                fullCommitHistory = await response.Content.ReadFromJsonAsync<List<string>>();
-
-                if (fullCommitHistory == null || fullCommitHistory.Count == 0)
+                var response = await httpClient.PostAsJsonAsync($"{serverPath}/api/repositories", createRequest);
+                if (response.IsSuccessStatusCode)
                 {
-                    MessageBox.Show($"No commits found in repository '{selectedRepo}'.",
-                                  "Commit History", MessageBoxButton.OK, MessageBoxImage.Information);
-                    CommitsListBox.ItemsSource = null;
-                    return;
-                }
-
-                CommitsListBox.ItemsSource = fullCommitHistory
-                    .Select(commit =>
+                    // Initialize Git repository after creating the database entry
+                    var initResponse = await httpClient.PostAsync($"{serverPath}/api/git/{repoName}/init", null);
+                    if (initResponse.IsSuccessStatusCode)
                     {
-                        int startIndex = commit.IndexOf("_usEnd_");
-                        if (startIndex < 0) return commit;
-
-                        int endIndex = commit.IndexOf("_summEnd_", startIndex);
-                        if (endIndex < 0) return commit.Substring(startIndex + 7);
-
-                        return commit.Substring(startIndex + 7, endIndex - (startIndex + 7));
-                    })
-                    .ToList();
-
-                CommitDetailsTextBox.Text = $"Repository: {selectedRepo}\nTotal Commits: {fullCommitHistory.Count}";
+                        MessageBox.Show("Repository created successfully!", "Success",
+                                      MessageBoxButton.OK, MessageBoxImage.Information);
+                        RepoNameTextBox.Clear();
+                        await RefreshRepositoryList();
+                    }
+                    else
+                    {
+                        var error = await initResponse.Content.ReadAsStringAsync();
+                        MessageBox.Show($"Error initializing repository: {error}", "Error",
+                                      MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Error creating repository: {error}", "Error",
+                                  MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"An error occurred: {ex.Message}", "Error",
+                MessageBox.Show($"Error: {ex.Message}", "Error",
                               MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-
-        private void CommitsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (CommitsListBox.SelectedItem == null) return;
-
-            var selectedCommit = fullCommitHistory[CommitsListBox.SelectedIndex].ToString();
-            var commitDetails = new StringBuilder();
-
-            int idEndIndex = selectedCommit.IndexOf("_idEnd_");
-            string commitId = idEndIndex >= 0
-                ? selectedCommit.Substring(0, idEndIndex).Trim()
-                : "N/A";
-
-            int userEndIndex = selectedCommit.IndexOf("_usEnd_");
-            string commitUser = idEndIndex >= 0
-                ? selectedCommit.Substring(idEndIndex + 7, userEndIndex-(idEndIndex + 7)).Trim()
-                : "N/A";
-
-            int summaryEndIndex = selectedCommit.IndexOf("_summEnd_");
-            string commitDescription = "";
-            if (summaryEndIndex >= 0 && idEndIndex >= 0)
-            {
-                int descriptionStart = summaryEndIndex + 9;
-                int descriptionLength = descriptionStart - summaryEndIndex;
-                if (descriptionLength > 0)
-                {
-                    commitDescription = selectedCommit.Substring(descriptionStart, descriptionLength).Trim();
-                }
-            }
-
-            int descriptionEndIndex = selectedCommit.LastIndexOf("_descEnd_");
-            string commitDate = descriptionEndIndex >= 0
-                ? selectedCommit.Substring(descriptionEndIndex + 9).Trim()
-                : "N/A";
-
-            commitDetails.AppendLine($"Commit ID: {commitId}");
-            commitDetails.AppendLine($"User: {commitDescription}");
-            commitDetails.AppendLine($"Description: {commitDescription}");
-            commitDetails.AppendLine($"Date: {commitDate}");
-
-            CommitDetailsTextBox.Text = commitDetails.ToString();
         }
 
         private async Task RefreshRepositoryList()
         {
             try
             {
-                var response = await httpClient.GetAsync($"{serverPath}/api/git/repositories");
+                var response = await httpClient.GetAsync($"{serverPath}/api/repositories");
                 if (response.IsSuccessStatusCode)
                 {
-                    var repos = await response.Content.ReadFromJsonAsync<List<string>>();
-                    ReposListBox.Items.Clear();
-                    foreach (var repo in repos)
-                    {
-                        ReposListBox.Items.Add(repo);
-                    }
+                    var repositories = await response.Content.ReadFromJsonAsync<List<Repository>>();
+                    ReposListBox.ItemsSource = repositories?.Select(r => r.Name).ToList();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Error fetching repositories: {error}", "Error",
+                                  MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to refresh repositories: {ex.Message}",
-                              "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task RefreshCommitHistory(string repoName)
+        {
+            try
+            {
+                var response = await httpClient.GetAsync($"{serverPath}/api/git/{repoName}/history");
+                if (response.IsSuccessStatusCode)
+                {
+                    fullCommitHistory = await response.Content.ReadFromJsonAsync<List<string>>();
+                    UpdateCommitsList();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Error fetching commit history: {error}", "Error",
+                                  MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Error",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void UpdateCommitsList()
+        {
+            if (fullCommitHistory != null)
+            {
+                var displayList = new List<string>();
+                foreach (var commit in fullCommitHistory)
+                {
+                    var parts = commit.Split(new[] { " _idEnd_ ", " _usEnd_ ", " _summEnd_ ", " _descEnd_ " }, StringSplitOptions.None);
+                    if (parts.Length >= 4)
+                    {
+                        displayList.Add($"{parts[1]} - {parts[2]}");
+                    }
+                }
+                CommitsListBox.ItemsSource = displayList;
+            }
+        }
+
+        private void CommitsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CommitsListBox.SelectedIndex >= 0 && fullCommitHistory != null)
+            {
+                var commit = fullCommitHistory[CommitsListBox.SelectedIndex];
+                var parts = commit.Split(new[] { " _idEnd_ ", " _usEnd_ ", " _summEnd_ ", " _descEnd_ " }, StringSplitOptions.None);
+                if (parts.Length >= 5)
+                {
+                    CommitDetailsTextBox.Text = $"Commit: {parts[0]}\nAuthor: {parts[1]}\nDate: {parts[4]}\n\nMessage:\n{parts[2]}\n\nDescription:\n{parts[3]}";
+                }
+            }
+        }
+
+        private void AttachFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog();
+            if (dialog.ShowDialog() == true)
+            {
+                selectedFlpPath = dialog.FileName;
+                AttachFileButton.Content = new TextBlock { Text = System.IO.Path.GetFileName(selectedFlpPath) };
+            }
+        }
+
+        private async void GetButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (ReposListBox.SelectedItem != null)
+            {
+                string selectedRepo = ReposListBox.SelectedItem.ToString();
+                await RefreshCommitHistory(selectedRepo);
+            }
+            else
+            {
+                MessageBox.Show("Please select a repository first.", "No Repository Selected",
+                              MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
@@ -284,5 +270,16 @@ namespace FruityGitDesktop
         {
             await RefreshRepositoryList();
         }
+    }
+
+    public class Repository
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public bool IsPrivate { get; set; }
+        public int UserId { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
 }
