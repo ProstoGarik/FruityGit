@@ -33,28 +33,53 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
 });
 
+// Configure CORS
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true) // Allow any origin
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Configure JWT Authentication
-builder.Services.AddAuthentication(options =>
+builder.Services.AddAuthentication(x =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
-.AddJwtBearer(options =>
+.AddJwtBearer(x =>
 {
-    options.TokenValidationParameters = new TokenValidationParameters
+    x.RequireHttpsMetadata = false;
+    x.SaveToken = true;
+    x.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? 
             throw new InvalidOperationException("JWT key not configured"))),
         ValidateIssuer = false,
-        ValidateAudience = false,
-        ClockSkew = TimeSpan.Zero
+        ValidateAudience = false
     };
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
+
 var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
 
 app.Use(async (context, next) =>
 {
@@ -68,6 +93,7 @@ app.Use(async (context, next) =>
     {
         if (app.Environment.IsDevelopment())
             logger.LogError($"Error: {context.Request.Method} {context.Request.Path}: {ex.Message}");
+        throw; // Re-throw the exception to ensure proper error handling
     }
     finally
     {
@@ -77,6 +103,9 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
+
+// Enable CORS - must be between UseRouting and UseEndpoints
+app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();

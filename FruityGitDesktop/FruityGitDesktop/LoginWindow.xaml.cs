@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Text.Json.Serialization;
 using System.Diagnostics;
+using System.Net.Http.Headers;
 
 namespace FruityGitDesktop
 {
@@ -21,6 +22,7 @@ namespace FruityGitDesktop
             this.apiUrl = apiUrl;
             httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
         private async void LoginButton_Click(object sender, RoutedEventArgs e)
@@ -42,11 +44,14 @@ namespace FruityGitDesktop
                 };
 
                 Debug.WriteLine($"Sending login request to: {apiUrl}/api/auth/login");
+                Debug.WriteLine($"Login data: {JsonSerializer.Serialize(loginData)}");
+
                 var response = await httpClient.PostAsJsonAsync($"{apiUrl}/api/auth/login", loginData);
                 var content = await response.Content.ReadAsStringAsync();
                 
                 Debug.WriteLine($"Response Status: {response.StatusCode}");
                 Debug.WriteLine($"Response Content: {content}");
+                Debug.WriteLine($"Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}"))}");
 
                 if (response.IsSuccessStatusCode)
                 {

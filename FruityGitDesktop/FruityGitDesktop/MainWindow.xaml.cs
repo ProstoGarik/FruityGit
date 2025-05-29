@@ -5,6 +5,9 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Linq;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace FruityGitDesktop
 {
