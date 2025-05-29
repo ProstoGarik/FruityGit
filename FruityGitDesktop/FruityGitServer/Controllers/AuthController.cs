@@ -7,6 +7,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
+using System.Text.Json;
 
 namespace FruityGitServer.Controllers
 {
@@ -28,46 +29,68 @@ namespace FruityGitServer.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            _logger.LogInformation("Login attempt for user: {Email}", request.Email);
-
-            if (!ModelState.IsValid)
+            try
             {
-                _logger.LogWarning("Invalid login request for {Email}: {Errors}", 
-                    request.Email, 
-                    string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
-                return BadRequest(new { error = "Invalid request" });
-            }
+                _logger.LogInformation("Login attempt for user: {Email}", request?.Email ?? "null");
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email);
-
-            if (user == null)
-            {
-                _logger.LogWarning("Login failed: User not found for email {Email}", request.Email);
-                return Unauthorized(new { error = "Invalid email or password" });
-            }
-
-            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
-            {
-                _logger.LogWarning("Login failed: Invalid password for user {Email}", request.Email);
-                return Unauthorized(new { error = "Invalid email or password" });
-            }
-
-            var token = GenerateJwtToken(user);
-            _logger.LogInformation("Login successful for user {Email}", user.Email);
-
-            return Ok(new LoginResponse
-            {
-                AccessToken = token,
-                TokenType = "bearer",
-                ExpiresIn = 3600,
-                User = new UserInfo
+                if (request == null)
                 {
-                    Name = user.Name,
-                    Email = user.Email
-                },
-                RedirectUrl = "/dashboard"
-            });
+                    _logger.LogWarning("Login request is null");
+                    return BadRequest(new { error = "Invalid request format" });
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    var errors = string.Join(", ", ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage));
+                    _logger.LogWarning("Invalid login request for {Email}: {Errors}", 
+                        request.Email, errors);
+                    return BadRequest(new { error = "Invalid request: " + errors });
+                }
+
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email == request.Email);
+
+                if (user == null)
+                {
+                    _logger.LogWarning("Login failed: User not found for email {Email}", request.Email);
+                    return Unauthorized(new { error = "Invalid email or password" });
+                }
+
+                if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+                {
+                    _logger.LogWarning("Login failed: Invalid password for user {Email}", request.Email);
+                    return Unauthorized(new { error = "Invalid email or password" });
+                }
+
+                var token = GenerateJwtToken(user);
+                _logger.LogInformation("Login successful for user {Email}", user.Email);
+
+                var response = new LoginResponse
+                {
+                    AccessToken = token,
+                    TokenType = "bearer",
+                    ExpiresIn = 3600,
+                    User = new UserInfo
+                    {
+                        Name = user.Name,
+                        Email = user.Email
+                    },
+                    RedirectUrl = "/dashboard"
+                };
+
+                // Log the response for debugging
+                var jsonResponse = JsonSerializer.Serialize(response);
+                _logger.LogInformation("Sending response: {Response}", jsonResponse);
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during login");
+                return StatusCode(500, new { error = "An unexpected error occurred" });
+            }
         }
 
         private string GenerateJwtToken(User user)
@@ -105,7 +128,10 @@ namespace FruityGitServer.Controllers
 
     public class LoginRequest
     {
+        [JsonPropertyName("email")]
         public string Email { get; set; }
+
+        [JsonPropertyName("password")]
         public string Password { get; set; }
     }
 

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Windows;
 using System.Text.Json.Serialization;
+using System.Diagnostics;
 
 namespace FruityGitDesktop
 {
@@ -40,18 +41,37 @@ namespace FruityGitDesktop
                     password = PasswordBox.Password
                 };
 
+                Debug.WriteLine($"Sending login request to: {apiUrl}/api/auth/login");
                 var response = await httpClient.PostAsJsonAsync($"{apiUrl}/api/auth/login", loginData);
                 var content = await response.Content.ReadAsStringAsync();
+                
+                Debug.WriteLine($"Response Status: {response.StatusCode}");
+                Debug.WriteLine($"Response Content: {content}");
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var loginResponse = JsonSerializer.Deserialize<LoginResponse>(content);
-                    if (loginResponse?.AccessToken != null)
+                    if (string.IsNullOrEmpty(content))
                     {
-                        LoggedInUser = loginResponse.User;
-                        LoggedInUser.Token = loginResponse.AccessToken;
-                        DialogResult = true;
-                        Close();
+                        ErrorTextBlock.Text = "Server returned empty response";
+                        return;
+                    }
+
+                    try
+                    {
+                        var loginResponse = JsonSerializer.Deserialize<LoginResponse>(content);
+                        if (loginResponse?.AccessToken != null)
+                        {
+                            LoggedInUser = loginResponse.User;
+                            LoggedInUser.Token = loginResponse.AccessToken;
+                            DialogResult = true;
+                            Close();
+                            return;
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        Debug.WriteLine($"JSON Deserialization Error: {ex}");
+                        ErrorTextBlock.Text = "Error processing server response";
                         return;
                     }
                 }
@@ -73,7 +93,8 @@ namespace FruityGitDesktop
             }
             catch (Exception ex)
             {
-                ErrorTextBlock.Text = "An error occurred while connecting to the server. Please try again.";
+                Debug.WriteLine($"Login Error: {ex}");
+                ErrorTextBlock.Text = $"An error occurred while connecting to the server: {ex.Message}";
             }
         }
     }
