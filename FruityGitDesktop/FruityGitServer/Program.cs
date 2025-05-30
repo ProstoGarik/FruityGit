@@ -4,9 +4,11 @@ using System;
 using Prometheus;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.EntityFrameworkCore.Storage;
+using Database.Context;
+
 
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
@@ -19,59 +21,11 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-if (string.IsNullOrEmpty(connectionString))
-{
-    // Fallback to building connection string from individual settings
-    var dbConfig = builder.Configuration.GetSection("Database");
-    connectionString = $"server={dbConfig["Host"]};port={dbConfig["Port"]};database={dbConfig["Name"]};user={dbConfig["Username"]};password={dbConfig["Password"]}";
-}
+var dbPath = Path.Combine("..", "Service", "Database", "FruityDB.db");
+var connectionString = $"Data Source={dbPath}";
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
-});
-
-// Configure CORS
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.SetIsOriginAllowed(_ => true) // Allow any origin
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
-});
-
-// Configure JWT Authentication
-builder.Services.AddAuthentication(x =>
-{
-    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(x =>
-{
-    x.RequireHttpsMetadata = false;
-    x.SaveToken = true;
-    x.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.ASCII.GetBytes(builder.Configuration["Jwt:Key"] ?? 
-            throw new InvalidOperationException("JWT key not configured"))),
-        ValidateIssuer = false,
-        ValidateAudience = false
-    };
-});
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.PropertyNamingPolicy = null;
-        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-    });
+builder.Services.AddDbContext<Database.Context.AppDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("Default")));
 
 var app = builder.Build();
 
@@ -103,9 +57,6 @@ app.Use(async (context, next) =>
 });
 
 app.UseRouting();
-
-// Enable CORS - must be between UseRouting and UseEndpoints
-app.UseCors();
 
 app.UseAuthentication();
 app.UseAuthorization();

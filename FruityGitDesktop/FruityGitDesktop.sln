@@ -9,6 +9,17 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FruityGitServer", "FruityGi
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Service", "Service", "{1D7A74DF-FFBD-488C-A3C2-5EDF9273EF82}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "database", "database", "{901C2659-0F43-4259-B658-F948E9EE5709}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решения", "Элементы решения", "{5ECA4E23-43FB-4185-92B5-A740A5CAFCE0}"
+	ProjectSection(SolutionItems) = preProject
+		Service\AppDbContext.cs = Service\AppDbContext.cs
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Database", "Service\Database\Database.csproj", "{37D84F84-1092-495A-914B-5C5E6DB18F0C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,9 +38,17 @@ Global
 		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37D84F84-1092-495A-914B-5C5E6DB18F0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37D84F84-1092-495A-914B-5C5E6DB18F0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37D84F84-1092-495A-914B-5C5E6DB18F0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37D84F84-1092-495A-914B-5C5E6DB18F0C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{901C2659-0F43-4259-B658-F948E9EE5709} = {1D7A74DF-FFBD-488C-A3C2-5EDF9273EF82}
+		{37D84F84-1092-495A-914B-5C5E6DB18F0C} = {901C2659-0F43-4259-B658-F948E9EE5709}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C2C74845-9988-4D6A-8671-2E8F72D7150A}
