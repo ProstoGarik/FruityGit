@@ -20,24 +20,28 @@ namespace FruityGitServer.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            if (request == null)
+            if (request == null || string.IsNullOrEmpty(request.Email)
+                               || string.IsNullOrEmpty(request.Password))
             {
-                return BadRequest("Invalid request");
+                return BadRequest("Email and password are required");
             }
 
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email && u.Password == request.Password);
+                .FirstOrDefaultAsync(u => u.Email == request.Email
+                                       && u.Password == request.Password);
 
             if (user == null)
             {
                 return Unauthorized("Invalid email or password");
             }
 
-            return Ok(new
+            // Return simple user data without token
+            return Ok(new LoginResponse
             {
-                Message = "Login successful",
-                User = new
+                Success = true,
+                User = new UserInfo
                 {
+                    Id = user.Id,
                     Name = user.Name,
                     Email = user.Email
                 }
@@ -49,5 +53,18 @@ namespace FruityGitServer.Controllers
     {
         public string Email { get; set; }
         public string Password { get; set; }
+    }
+
+    public class LoginResponse
+    {
+        public bool Success { get; set; }
+        public UserInfo User { get; set; }
+    }
+
+    public class UserInfo
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Email { get; set; }
     }
 }

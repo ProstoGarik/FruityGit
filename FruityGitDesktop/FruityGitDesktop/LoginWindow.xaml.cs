@@ -14,7 +14,7 @@ namespace FruityGitDesktop
         private readonly HttpClient httpClient;
         private readonly string apiUrl;
 
-        public UserInfo LoggedInUser { get; private set; }
+        public User LoggedInUser { get; private set; }
 
         public LoginWindow(string apiUrl)
         {
@@ -31,7 +31,8 @@ namespace FruityGitDesktop
             {
                 ErrorTextBlock.Text = string.Empty;
 
-                if (string.IsNullOrWhiteSpace(EmailTextBox.Text) || string.IsNullOrWhiteSpace(PasswordBox.Password))
+                if (string.IsNullOrWhiteSpace(EmailTextBox.Text) ||
+                    string.IsNullOrWhiteSpace(PasswordBox.Password))
                 {
                     ErrorTextBlock.Text = "Please enter both email and password";
                     return;
@@ -43,83 +44,52 @@ namespace FruityGitDesktop
                     password = PasswordBox.Password
                 };
 
-                Debug.WriteLine($"Sending login request to: {apiUrl}/api/auth/login");
-                Debug.WriteLine($"Login data: {JsonSerializer.Serialize(loginData)}");
-
                 var response = await httpClient.PostAsJsonAsync($"{apiUrl}/api/auth/login", loginData);
                 var content = await response.Content.ReadAsStringAsync();
-                
-                Debug.WriteLine($"Response Status: {response.StatusCode}");
-                Debug.WriteLine($"Response Content: {content}");
-                Debug.WriteLine($"Response Headers: {string.Join(", ", response.Headers.Select(h => $"{h.Key}: {string.Join(", ", h.Value)}"))}");
 
                 if (response.IsSuccessStatusCode)
                 {
-                    if (string.IsNullOrEmpty(content))
-                    {
-                        ErrorTextBlock.Text = "Server returned empty response";
-                        return;
-                    }
+                    var loginResponse = JsonSerializer.Deserialize<LoginResponse>(content);
 
-                    try
+                    if (loginResponse?.Success == true && loginResponse.User != null)
                     {
-                        var loginResponse = JsonSerializer.Deserialize<LoginResponse>(content);
-                        if (loginResponse?.AccessToken != null)
+                        // Store user information as needed
+                        LoggedInUser = new User
                         {
-                            LoggedInUser = loginResponse.User;
-                            LoggedInUser.Token = loginResponse.AccessToken;
-                            DialogResult = true;
-                            Close();
-                            return;
-                        }
+                            Id = loginResponse.User.Id,
+                            Name = loginResponse.User.Name,
+                            Email = loginResponse.User.Email
+                        };
+
+                        DialogResult = true;
+                        Close();
                     }
-                    catch (JsonException ex)
+                    else
                     {
-                        Debug.WriteLine($"JSON Deserialization Error: {ex}");
-                        ErrorTextBlock.Text = "Error processing server response";
-                        return;
+                        ErrorTextBlock.Text = "Login failed: Invalid response from server";
                     }
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
                     ErrorTextBlock.Text = "Invalid email or password";
-                    return;
                 }
-                else if (response.StatusCode == System.Net.HttpStatusCode.UnprocessableEntity)
+                else
                 {
-                    var validationErrors = JsonSerializer.Deserialize<ValidationErrorResponse>(content);
-                    ErrorTextBlock.Text = string.Join("\n", validationErrors.Errors.SelectMany(e => e.Value));
-                    return;
+                    ErrorTextBlock.Text = $"Login failed: {response.ReasonPhrase}";
                 }
-
-                // If we get here, something else went wrong
-                var errorResponse = JsonSerializer.Deserialize<ErrorResponse>(content);
-                ErrorTextBlock.Text = errorResponse?.Error ?? "Login failed. Please try again.";
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Login Error: {ex}");
-                ErrorTextBlock.Text = $"An error occurred while connecting to the server: {ex.Message}";
+                ErrorTextBlock.Text = $"An error occurred: {ex.Message}";
+                Debug.WriteLine($"Login error: {ex}");
             }
         }
     }
 
     public class LoginResponse
     {
-        [JsonPropertyName("access_token")]
-        public string AccessToken { get; set; }
-
-        [JsonPropertyName("token_type")]
-        public string TokenType { get; set; }
-
-        [JsonPropertyName("expires_in")]
-        public int ExpiresIn { get; set; }
-
-        [JsonPropertyName("user")]
-        public UserInfo User { get; set; }
-
-        [JsonPropertyName("redirect_url")]
-        public string RedirectUrl { get; set; }
+        public bool Success { get; set; }
+        public User User { get; set; }
     }
 
     public class ValidationErrorResponse

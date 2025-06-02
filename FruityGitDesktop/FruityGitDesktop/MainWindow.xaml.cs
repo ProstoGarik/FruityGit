@@ -15,7 +15,7 @@ namespace FruityGitDesktop
     {
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
-        private string serverPath = "http://192.168.1.54:8000";
+        private string serverPath = "http://192.168.135.52:8000";
         private string userToken;
         private string userName;
         private string userEmail;
@@ -57,7 +57,6 @@ namespace FruityGitDesktop
             if (loginWindow.ShowDialog() == true)
             {
                 var user = loginWindow.LoggedInUser;
-                userToken = user.Token;
                 userName = user.Name;
                 userEmail = user.Email;
                 
