@@ -154,4 +154,8 @@ volumes:
 
 networks:
   stats:
-    driver: bridge  
+    driver: bridge 
+  postgres:
+    driver: bridge
+  backend:
+    driver: bridge
