@@ -21,6 +21,9 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddControllers();
+builder.Services.AddAuthorization();
+
 var dbPath = Path.Combine("..", "Service", "Database", "FruityDB.db");
 var connectionString = $"Data Source={dbPath}";
 
