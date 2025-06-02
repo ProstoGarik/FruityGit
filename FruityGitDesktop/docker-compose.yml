@@ -152,6 +152,7 @@ services:
 volumes:
   grafana_data:
   fruity-data:
+  pgadmin-data:
 
 networks:
   stats:
