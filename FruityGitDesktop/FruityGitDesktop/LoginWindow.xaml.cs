@@ -14,7 +14,7 @@ namespace FruityGitDesktop
         private readonly HttpClient httpClient;
         private readonly string apiUrl;
 
-        public User LoggedInUser { get; private set; }
+        public UserInfo LoggedInUser { get; private set; }
 
         public LoginWindow(string apiUrl)
         {
@@ -54,7 +54,7 @@ namespace FruityGitDesktop
                     if (loginResponse?.Success == true && loginResponse.User != null)
                     {
                         // Store user information as needed
-                        LoggedInUser = new User
+                        LoggedInUser = new UserInfo
                         {
                             Id = loginResponse.User.Id,
                             Name = loginResponse.User.Name,
@@ -89,7 +89,7 @@ namespace FruityGitDesktop
     public class LoginResponse
     {
         public bool Success { get; set; }
-        public User User { get; set; }
+        public UserInfo User { get; set; }
     }
 
     public class ValidationErrorResponse

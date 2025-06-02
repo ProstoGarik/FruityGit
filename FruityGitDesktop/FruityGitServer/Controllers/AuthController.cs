@@ -27,15 +27,18 @@ namespace FruityGitServer.Controllers
             }
 
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email
-                                       && u.Password == request.Password);
+                .FirstOrDefaultAsync(u => u.Email == request.Email);
 
             if (user == null)
             {
                 return Unauthorized("Invalid email or password");
             }
 
-            // Return simple user data without token
+            if (user.Password != request.Password)
+            {
+                return Unauthorized("Invalid email or password");
+            }
+
             return Ok(new LoginResponse
             {
                 Success = true,
