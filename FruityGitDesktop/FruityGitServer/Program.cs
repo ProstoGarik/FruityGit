@@ -59,6 +59,20 @@ app.Use(async (context, next) =>
     }
 });
 
+void RegisterDataSources(IServiceCollection services)
+{
+    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+    var dbName = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "FruityDB";
+    var dbUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres";
+    var dbPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "yoursecurepassword";
+
+    var connectionString = $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword}";
+
+    services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(connectionString));
+}
+
+
 app.UseRouting();
 
 app.MapControllers();
