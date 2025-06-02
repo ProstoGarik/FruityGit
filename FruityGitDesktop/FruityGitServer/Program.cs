@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.EntityFrameworkCore.Storage;
 using Database.Context;
+using FruityGitServer.Context;
 
 
 Log.Logger = new LoggerConfiguration()
@@ -23,14 +24,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddAuthorization();
-
-var dbPath = Path.Combine("..", "Service", "Database", "FruityDB.db");
-var connectionString = $"Data Source={dbPath}";
-
-builder.Services.AddDbContext<Database.Context.AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("Default")));
+RegisterDataSources(builder.Services);
 
 var app = builder.Build();
+
+await InitializeDataSources(app);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -68,12 +66,19 @@ void RegisterDataSources(IServiceCollection services)
 
     var connectionString = $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword}";
 
-    services.AddDbContext<AppDbContext>(options =>
+    services.AddDbContext<DataContext>(options =>
         options.UseNpgsql(connectionString));
 }
 
+async Task InitializeDataSources(WebApplication application)
+{
+    using var scope = application.Services.CreateScope();
+    var dataContext = scope.ServiceProvider.GetRequiredService<DataContext>();
+    await dataContext.TryInitializeAsync();
+}
 
-app.UseRouting();
+
+    app.UseRouting();
 
 app.MapControllers();
 

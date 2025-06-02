@@ -21,6 +21,20 @@
                 entity.HasIndex(u => u.Email).IsUnique();
             });
         }
+
+        public async Task<bool> TryInitializeAsync()
+        {
+            try
+            {
+                await Database.MigrateAsync();
+                return await Database.CanConnectAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Migration failed: {ex}");
+                return false;
+            }
+        }
     }
 
     public class User

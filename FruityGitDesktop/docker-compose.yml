@@ -142,6 +142,8 @@ services:
     depends_on:
       loki:
         condition: service_started
+      postgres:
+        condition: service_healthy
     logging: *default-logging
     environment:
       APP_NAME: "fruitygit"
