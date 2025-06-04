@@ -8,7 +8,7 @@ using LibGit2Sharp;
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Database.Context;
+
 
 [ApiController]
 [Route("api/git")]
@@ -16,13 +16,11 @@ using Database.Context;
 public class GitController : ControllerBase
 {
     private readonly string _reposRootPath;
-    private readonly AppDbContext _context;
     private readonly ILogger<GitController> _logger;
 
-    public GitController(IWebHostEnvironment env, AppDbContext context, ILogger<GitController> logger)
+    public GitController(IWebHostEnvironment env, ILogger<GitController> logger)
     {
         _reposRootPath = Path.Combine(env.ContentRootPath, "ReposFolder");
-        _context = context;
         _logger = logger;
     }
 

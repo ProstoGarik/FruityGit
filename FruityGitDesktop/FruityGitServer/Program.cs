@@ -1,15 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using FruityGitServer;
-using System;
-using Prometheus;
+using FruityGitServer.Context;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.EntityFrameworkCore.Storage;
-using Database.Context;
-using FruityGitServer.Context;
-
+using System.Collections.Generic;
 
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
@@ -22,8 +15,8 @@ Log.Logger = new LoggerConfiguration()
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddAuthorization();
 RegisterDataSources(builder.Services);
 
 var app = builder.Build();
@@ -48,7 +41,7 @@ app.Use(async (context, next) =>
     {
         if (app.Environment.IsDevelopment())
             logger.LogError($"Error: {context.Request.Method} {context.Request.Path}: {ex.Message}");
-        throw; // Re-throw the exception to ensure proper error handling
+        throw;
     }
     finally
     {
@@ -57,12 +50,17 @@ app.Use(async (context, next) =>
     }
 });
 
+app.UseRouting();
+app.MapControllers();
+
+app.Run();
+
 void RegisterDataSources(IServiceCollection services)
 {
-    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "postgres_container";
     var dbName = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "FruityDB";
     var dbUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres";
-    var dbPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "yoursecurepassword";
+    var dbPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "123Secret";
 
     var connectionString = $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword}";
 
@@ -74,12 +72,9 @@ async Task InitializeDataSources(WebApplication application)
 {
     using var scope = application.Services.CreateScope();
     var dataContext = scope.ServiceProvider.GetRequiredService<DataContext>();
-    await dataContext.TryInitializeAsync();
+    if (!await dataContext.TryInitializeAsync())
+    {
+        Log.Fatal("Failed to initialize database");
+        throw new InvalidOperationException("Failed to initialize database");
+    }
 }
-
-
-    app.UseRouting();
-
-app.MapControllers();
-
-app.Run();

@@ -1,7 +1,6 @@
-using Database.Context;
+using FruityGitServer.Context;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace FruityGitServer.Controllers
@@ -10,9 +9,9 @@ namespace FruityGitServer.Controllers
     [Route("api/auth")]
     public class AuthController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly DataContext _context;
 
-        public AuthController(AppDbContext context)
+        public AuthController(DataContext context)
         {
             _context = context;
         }
@@ -34,6 +33,7 @@ namespace FruityGitServer.Controllers
                 return Unauthorized("Invalid email or password");
             }
 
+            // In a real application, you should hash and compare passwords properly
             if (user.Password != request.Password)
             {
                 return Unauthorized("Invalid email or password");
