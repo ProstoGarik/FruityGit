@@ -170,7 +170,7 @@ namespace FruityGitDesktop
         {
             try
             {
-                var response = await httpClient.GetAsync($"{serverPath}/api/repositories");
+                var response = await httpClient.GetAsync($"{serverPath}/api/git/repositories");
                 if (response.IsSuccessStatusCode)
                 {
                     var repositories = await response.Content.ReadFromJsonAsync<List<Repository>>();
