@@ -88,7 +88,10 @@ namespace FruityGitDesktop
 
     public class LoginResponse
     {
+        [JsonPropertyName("success")]
         public bool Success { get; set; }
+
+        [JsonPropertyName("user")]
         public UserInfo User { get; set; }
     }
 

@@ -97,6 +97,35 @@ public class GitController : ControllerBase
         }
     }
 
+    [HttpGet("repositories")]
+    public async Task<IActionResult> GetRepositories()
+    {
+        try
+        {
+            _logger.LogInformation($"Getting list of repositories from: {_reposRootPath}");
+
+            if (!Directory.Exists(_reposRootPath))
+            {
+                _logger.LogInformation("Repositories directory doesn't exist yet");
+                return Ok(new List<string>());
+            }
+
+            var repositories = Directory.GetDirectories(_reposRootPath)
+                .Where(dir => LibGit2Sharp.Repository.IsValid(dir))
+                .Select(dir => Path.GetRelativePath(_reposRootPath, dir))
+                .ToList();
+
+            _logger.LogInformation($"Found {repositories.Count} repositories");
+            return Ok(repositories);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error getting repositories list: {ex}");
+            return StatusCode(500, $"Error getting repositories: {ex.Message}");
+        }
+    }
+
+
     [HttpGet("{repoName}/history")]
     public async Task<IActionResult> GetHistory(string repoName)
     {

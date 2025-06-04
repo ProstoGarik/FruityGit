@@ -139,6 +139,7 @@ services:
       - "8000:8080"
     networks:
       - stats
+      - backend 
     depends_on:
       loki:
         condition: service_started
