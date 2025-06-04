@@ -52,6 +52,7 @@ app.Use(async (context, next) =>
 
 app.UseRouting();
 app.UseAuthorization();
+app.UseAuthentication();
 app.MapControllers();
 
 app.Run();
