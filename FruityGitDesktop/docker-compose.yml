@@ -74,7 +74,7 @@ services:
     volumes:
       - fruity-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d plantsdb"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d FruityDB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -146,7 +146,7 @@ services:
         condition: service_healthy
     logging: *default-logging
     environment:
-      - APP_NAME= "fruitygit"
+      - APP_NAME=fruitygit
       - DB_HOST=postgres
       - POSTGRES_DB=FruityDB
       - POSTGRES_USER=postgres
