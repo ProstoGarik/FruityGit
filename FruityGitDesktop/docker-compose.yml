@@ -146,7 +146,12 @@ services:
         condition: service_healthy
     logging: *default-logging
     environment:
-      APP_NAME: "fruitygit"
+      - APP_NAME= "fruitygit"
+      - DB_HOST=postgres
+      - POSTGRES_DB=plantsdb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123Secret_a
+
     volumes:
       - ./ReposFolder:/app/ReposFolder
         

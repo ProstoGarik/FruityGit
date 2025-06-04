@@ -64,6 +64,8 @@ void RegisterDataSources(IServiceCollection services)
 
     var connectionString = $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword}";
 
+    Console.WriteLine(connectionString);
+
     services.AddDbContext<DataContext>(options =>
         options.UseNpgsql(connectionString));
 }
