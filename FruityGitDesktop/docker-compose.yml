@@ -148,9 +148,9 @@ services:
     environment:
       - APP_NAME= "fruitygit"
       - DB_HOST=postgres
-      - POSTGRES_DB=plantsdb
+      - POSTGRES_DB=FruityDB
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=123Secret_a
+      - POSTGRES_PASSWORD=123Secret
 
     volumes:
       - ./ReposFolder:/app/ReposFolder

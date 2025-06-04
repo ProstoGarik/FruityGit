@@ -57,7 +57,7 @@ app.Run();
 
 void RegisterDataSources(IServiceCollection services)
 {
-    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "postgres_container";
+    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "postgres";
     var dbName = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "FruityDB";
     var dbUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres";
     var dbPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "123Secret";
