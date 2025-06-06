@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 
 [ApiController]
 [Route("api/git")]
-[Authorize]
 public class GitController : ControllerBase
 {
     private readonly string _reposRootPath;
