@@ -140,10 +140,7 @@ public class GitController : ControllerBase
                 {
                     commitHistory.Add($"{commit.Id} _idEnd_ {commit.Author.Name} _usEnd_ {commit.Message} _descEnd_ {commit.Author.When}");
                 }
-                foreach (TreeEntryChanges c in repo.Diff.Compare<TreeChanges>())
-                {
-                    commitHistory.Add(c.ToString());
-                }
+                //repo.Diff.Compare();
 
             }
 
