@@ -133,29 +133,18 @@ namespace FruityGitDesktop
                     isPrivate = false
                 };
 
-                var response = await httpClient.PostAsJsonAsync($"{serverPath}/api/repositories", createRequest);
-                if (response.IsSuccessStatusCode)
+                var initResponse = await httpClient.PostAsync($"{serverPath}/api/git/{repoName}/init", null);
+                if (initResponse.IsSuccessStatusCode)
                 {
-                    // Initialize Git repository after creating the database entry
-                    var initResponse = await httpClient.PostAsync($"{serverPath}/api/git/{repoName}/init", null);
-                    if (initResponse.IsSuccessStatusCode)
-                    {
-                        MessageBox.Show("Repository created successfully!", "Success",
-                                      MessageBoxButton.OK, MessageBoxImage.Information);
-                        RepoNameTextBox.Clear();
-                        await RefreshRepositoryList();
-                    }
-                    else
-                    {
-                        var error = await initResponse.Content.ReadAsStringAsync();
-                        MessageBox.Show($"Error initializing repository: {error}", "Error",
-                                      MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
+                    MessageBox.Show("Repository created successfully!", "Success",
+                                  MessageBoxButton.OK, MessageBoxImage.Information);
+                    RepoNameTextBox.Clear();
+                    await RefreshRepositoryList();
                 }
                 else
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    MessageBox.Show($"Error creating repository: {error}", "Error",
+                    var error = await initResponse.Content.ReadAsStringAsync();
+                    MessageBox.Show($"Error initializing repository: {error}", "Error",
                                   MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -173,8 +162,8 @@ namespace FruityGitDesktop
                 var response = await httpClient.GetAsync($"{serverPath}/api/git/repositories");
                 if (response.IsSuccessStatusCode)
                 {
-                    var repositories = await response.Content.ReadFromJsonAsync<List<Repository>>();
-                    ReposListBox.ItemsSource = repositories?.Select(r => r.Name).ToList();
+                    var repositories = await response.Content.ReadFromJsonAsync<List<String>>();
+                    ReposListBox.ItemsSource = repositories;
                 }
                 else
                 {
@@ -272,6 +261,7 @@ namespace FruityGitDesktop
         {
             await RefreshRepositoryList();
         }
+
     }
 
     public class Repository

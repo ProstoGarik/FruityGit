@@ -4,10 +4,12 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:FruityGitDesktop"
+        xmlns:controls="clr-namespace:FruityGitDesktop;assembly=FruityGitDesktop"
         mc:Ignorable="d"
         Title="FruityGit" Height="450" Width="800"
         WindowStartupLocation="CenterScreen"
         Background="White">
+    
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -44,20 +46,22 @@
                       FontSize="15" 
                       HorizontalAlignment="Left" VerticalAlignment="Top" 
                       Margin="15,70,0,0"/>
-            
+
             <TextBox x:Name="SummaryInputTextBox" 
                      Style="{StaticResource DefaultTextBoxStyle}"
                      Width="295" Height="25" 
                      VerticalAlignment="Top" 
                      Margin="55,70,0,0"/>
-            
+
             <TextBox x:Name="DescriptionInputTextBox" 
                      Style="{StaticResource DefaultTextBoxStyle}"
                      Width="350" Height="50" 
                      VerticalAlignment="Top" 
                      Margin="0,100,0,0"
-                     ToolTip="Description"/>
-            
+                     ToolTip="Description">
+            </TextBox>
+
+
             <Button x:Name="SendButton" 
                     Style="{StaticResource DefaultButtonStyle}"
                     Width="100" Height="50" 

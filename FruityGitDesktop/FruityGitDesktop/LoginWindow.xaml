@@ -1,4 +1,4 @@
-<Window x:Class="FruityGitDesktop.LoginWindow"
+﻿<Window x:Class="FruityGitDesktop.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -17,7 +17,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Login to FruityGit"
+        <TextBlock Text="Вход в FruityGit"
                    FontSize="24" 
                    FontWeight="Bold"
                    HorizontalAlignment="Center"
