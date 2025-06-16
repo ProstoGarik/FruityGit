@@ -7,10 +7,8 @@ def process_flp(flp_path):
     try:
         flp_path = Path(flp_path)
         project = pyflp.parse(flp_path)
-        
-        # Создаем ZIP рядом с исходным файлом
         zip_path = flp_path.with_suffix('.zip')
-        
+      
         with zipfile.ZipFile(zip_path, 'w') as zp:
             zp.write(flp_path, arcname=flp_path.name)
             
