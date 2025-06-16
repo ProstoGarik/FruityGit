@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace FruityGitDesktop
 {
@@ -15,7 +16,7 @@ namespace FruityGitDesktop
     {
         private readonly HttpClient httpClient;
         private string selectedFlpPath;
-        private string serverPath = "http://192.168.135.52:8000";
+        private string serverPath = "http://192.168.1.54:8000";
         private string userToken;
         private string userName;
         private string userEmail;
@@ -236,10 +237,64 @@ namespace FruityGitDesktop
         private void AttachFileButton_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new Microsoft.Win32.OpenFileDialog();
+            dialog.Filter = "FLP Files (*.flp)|*.flp"; // Ограничиваем выбор только .flp файлами
+
             if (dialog.ShowDialog() == true)
             {
                 selectedFlpPath = dialog.FileName;
                 AttachFileButton.Content = new TextBlock { Text = System.IO.Path.GetFileName(selectedFlpPath) };
+
+                // Вызываем обработку файла
+                ProcessFlpFile(selectedFlpPath);
+            }
+        }
+
+        private void ProcessFlpFile(string flpPath)
+        {
+            try
+            {
+                // Путь к Python-скрипту в Resources
+                string pythonScriptPath = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "Resources",
+                    "main.py"
+                );
+
+                if (!File.Exists(pythonScriptPath))
+                {
+                    MessageBox.Show("Python script not found!", "Error");
+                    return;
+                }
+
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = "python",
+                    Arguments = $"\"{pythonScriptPath}\" \"{flpPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using (Process process = Process.Start(psi))
+                {
+                    string output = process.StandardOutput.ReadToEnd();
+                    string errors = process.StandardError.ReadToEnd();
+                    process.WaitForExit();
+
+                    if (!string.IsNullOrEmpty(errors))
+                    {
+                        MessageBox.Show($"Python error:\n{errors}", "Error");
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Success:\n{output}", "Result");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Error");
             }
         }
 
