@@ -9,12 +9,41 @@ function App() {
   const [repos, setRepos] = useState([]);
   const [commits, setCommits] = useState([]);
   const [selectedCommit, setSelectedCommit] = useState(null);
+  const [attachedFile, setAttachedFile] = useState(null);
+  const serverPath = 'http://localhost:8000'; // TODO: update to your actual server path
 
   // Заглушки для обработчиков событий
   const handleLogin = () => console.log('Login clicked');
-  const handleAttachFile = () => console.log('Attach file clicked');
+  const handleAttachFile = async () => {
+    // Dynamically require ipcRenderer (since nodeIntegration is true)
+    const { ipcRenderer } = window.require('electron');
+    const filePath = await ipcRenderer.invoke('open-flp-dialog');
+    if (filePath) {
+      setAttachedFile(filePath);
+    }
+  };
   const handleSend = () => console.log('Send clicked');
-  const handleCreateRepo = () => console.log('Create repo clicked');
+  const handleCreateRepo = async () => {
+    if (!repoName) {
+      alert('Введите название репозитория');
+      return;
+    }
+    try {
+      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(repoName)}/init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Ошибка при создании репозитория');
+      }
+      alert('Репозиторий успешно создан!');
+      // Optionally refresh repo list here
+    } catch (error) {
+      alert(error.message);
+    }
+  };
   const handleShowRepo = () => console.log('Show repo clicked');
   const handleRefreshRepo = () => console.log('Refresh repo clicked');
   
@@ -41,6 +70,10 @@ function App() {
             <button className="action-button" onClick={handleAttachFile}>
               Прикрепить файл
             </button>
+            
+            {attachedFile && (
+              <div className="attached-file-info">Прикреплён: {attachedFile}</div>
+            )}
             
             <div className="input-group">
               <label className="input-label">Кратко:</label>

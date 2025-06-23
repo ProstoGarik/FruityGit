@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 
 const { execFile } = require('child_process');
@@ -25,6 +25,19 @@ function createWindow() {
   if (process.env.NODE_ENV === 'development') {
     win.webContents.openDevTools();
   }
+
+  // Add IPC handler for opening .flp file dialog
+  ipcMain.handle('open-flp-dialog', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: 'Выберите .flp файл',
+      filters: [
+        { name: 'FL Studio Project', extensions: ['flp'] }
+      ],
+      properties: ['openFile']
+    });
+    if (canceled) return null;
+    return filePaths[0];
+  });
 }
 
 app.whenReady().then(createWindow);
