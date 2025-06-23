@@ -31,5 +31,5 @@ if __name__ == "__main__":
         print("Usage: python script.py <path_to_flp>")
         sys.exit(1)
     
-    flp_path = sys.argv[1]
+    flp_path = "C:/Users/Academy/Downloads/Pipo/Pipotaku.flp"
     process_flp(flp_path)

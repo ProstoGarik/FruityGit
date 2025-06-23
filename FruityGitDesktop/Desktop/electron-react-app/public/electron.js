@@ -1,7 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 
+
 const { execFile } = require('child_process');
+
 
 
 function createWindow() {
@@ -39,6 +41,21 @@ function createWindow() {
     return filePaths[0];
   });
 }
+
+ipcMain.handle('read-file', async (event, filePath) => {
+  try {
+    const fs = require('fs').promises;
+    const content = await fs.readFile(filePath);
+    return content;
+  } catch (error) {
+    console.error('Error reading file:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('get-app-path', () => {
+  return app.getAppPath();
+});
 
 app.whenReady().then(createWindow);
 

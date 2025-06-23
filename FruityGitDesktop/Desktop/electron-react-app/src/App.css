@@ -208,3 +208,8 @@
   flex: 1;
   overflow-y: auto;
 }
+
+.selected-repo {
+  background-color: #e0e0e0;
+  font-weight: bold;
+}
