@@ -69,6 +69,12 @@ ipcMain.handle('open-folder-dialog', async () => {
   return filePaths[0];
 });
 
+// In your main electron process file (main.js)
+ipcMain.handle('show-message-box', async (event, options) => {
+  const result = await dialog.showMessageBox(options);
+  return result;
+});
+
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
