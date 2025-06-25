@@ -57,6 +57,18 @@ ipcMain.handle('get-app-path', () => {
   return app.getAppPath();
 });
 
+ipcMain.handle('open-save-dialog', async (event, options) => {
+  const { filePath } = await dialog.showSaveDialog(options);
+  return filePath;
+});
+
+ipcMain.handle('open-folder-dialog', async () => {
+  const { filePaths } = await dialog.showOpenDialog({
+    properties: ['openDirectory']
+  });
+  return filePaths[0];
+});
+
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {

@@ -175,6 +175,37 @@ public class GitController : ControllerBase
             return StatusCode(500, $"Unexpected error: {ex.Message}");
         }
     }
+
+    [HttpGet("{repoName}/download")]
+    public IActionResult DownloadRepository(string repoName)
+    {
+        try
+        {
+            var repoPath = Path.Combine(_reposRootPath, repoName);
+            
+            if (!LibGit2Sharp.Repository.IsValid(repoPath))
+            {
+                return NotFound("Repository not found");
+            }
+
+            // Create a temporary zip file name
+            var tempFileName = Path.GetTempFileName();
+            var zipPath = tempFileName + ".zip";
+
+            // Create zip archive
+            ZipFile.CreateFromDirectory(repoPath, zipPath);
+
+            // Return the file (will be deleted after sending)
+            var fileStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read);
+            return File(fileStream, "application/zip", $"{repoName}.zip");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error downloading repository: {ex}");
+            return StatusCode(500, $"Error downloading repository: {ex.Message}");
+        }
+    }
+
 }
 
 public class CommitRequest

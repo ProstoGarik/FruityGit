@@ -13,58 +13,62 @@ function App() {
   const serverPath = 'http://192.168.135.52:8000'; // TODO: update to your actual server path
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState(null);
+  const [processWithPython, setProcessWithPython] = useState(true);
 
   // Заглушки для обработчиков событий
   const handleLogin = () => console.log('Login clicked');
   const handleAttachFile = async () => {
     const { ipcRenderer } = window.require('electron');
-    const { spawn } = window.require('child_process');
     const path = window.require('path');
 
     try {
       const filePath = await ipcRenderer.invoke('open-flp-dialog');
       if (!filePath) return;
 
-      // Для Electron >= 14 используем ipcRenderer.invoke для получения пути
-      const appPath = await ipcRenderer.invoke('get-app-path');
+      if (processWithPython) {
+        // Python processing mode
+        const { spawn } = window.require('child_process');
+        const appPath = await ipcRenderer.invoke('get-app-path');
 
-      const pythonScriptPath = path.join(
-        appPath,
-        'resources',
-        'python-app',
-        'dist',
-        'flp_processor.exe'
-      );
+        const pythonScriptPath = path.join(
+          appPath,
+          'resources',
+          'python-app',
+          'dist',
+          'flp_processor.exe'
+        );
 
-      console.log('Python script path:', pythonScriptPath);
+        console.log('Python script path:', pythonScriptPath);
 
-      // Проверка существования файла
-      const fs = window.require('fs');
-      if (!fs.existsSync(pythonScriptPath)) {
-        throw new Error(`FLP processor not found at: ${pythonScriptPath}`);
-      }
-
-      const pythonProcess = spawn(pythonScriptPath, [filePath]);
-
-      pythonProcess.stdout.on('data', (data) => {
-        console.log(`Python stdout: ${data}`);
-      });
-
-      pythonProcess.stderr.on('data', (data) => {
-        console.error(`Python stderr: ${data}`);
-      });
-
-      pythonProcess.on('close', (code) => {
-        if (code === 0) {
-          console.log('Python script completed successfully');
-          const zipPath = filePath.replace(/\.flp$/, '.zip');
-          setAttachedFile(zipPath);
-        } else {
-          console.error(`Python script exited with code ${code}`);
-          alert('Ошибка обработки FLP-файла');
+        const fs = window.require('fs');
+        if (!fs.existsSync(pythonScriptPath)) {
+          throw new Error(`FLP processor not found at: ${pythonScriptPath}`);
         }
-      });
 
+        const pythonProcess = spawn(pythonScriptPath, [filePath]);
+
+        pythonProcess.stdout.on('data', (data) => {
+          console.log(`Python stdout: ${data}`);
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+          console.error(`Python stderr: ${data}`);
+        });
+
+        pythonProcess.on('close', (code) => {
+          if (code === 0) {
+            console.log('Python script completed successfully');
+            const zipPath = filePath.replace(/\.flp$/, '.zip');
+            setAttachedFile(zipPath);
+          } else {
+            console.error(`Python script exited with code ${code}`);
+            alert('Ошибка обработки FLP-файла');
+          }
+        });
+      } else {
+        // Direct attach mode
+        setAttachedFile(filePath);
+      }
     } catch (error) {
       console.error('Error processing FLP file:', error);
       alert(`Ошибка: ${error.message}`);
@@ -91,15 +95,21 @@ function App() {
       const formData = new FormData();
       const { ipcRenderer } = window.require('electron');
 
-      // Получаем содержимое файла как Buffer
+      // Get file content
       const fileContent = await ipcRenderer.invoke('read-file', attachedFile);
       if (!fileContent) {
         throw new Error('Не удалось прочитать файл');
       }
 
-      // Создаем Blob из содержимого файла
-      const fileBlob = new Blob([fileContent]);
-      const fileName = attachedFile.split(/[\\/]/).pop();
+      // Determine file name
+      const fileName = processWithPython
+        ? attachedFile.split(/[\\/]/).pop().replace('.flp', '.zip')
+        : attachedFile.split(/[\\/]/).pop();
+
+      // Create Blob with appropriate type
+      const fileBlob = new Blob([fileContent], {
+        type: processWithPython ? 'application/zip' : 'application/octet-stream'
+      });
 
       formData.append('file', fileBlob, fileName);
       formData.append('summary', summary);
@@ -231,11 +241,102 @@ function App() {
     }
   };
 
-  // Заглушка для данных
-  const mockCommits = [
-    { id: 1, message: "Initial commit", date: "2023-06-15", details: "First commit details..." },
-    { id: 2, message: "Added new feature", date: "2023-06-18", details: "Feature implementation details..." },
-  ];
+
+  const handleDownloadRepo = async () => {
+    if (!selectedRepo) {
+      alert('Пожалуйста, выберите репозиторий');
+      return;
+    }
+
+    try {
+      const { ipcRenderer } = window.require('electron');
+      const path = window.require('path');
+      const fs = window.require('fs');
+
+      // Ask user where to save
+      const savePath = await ipcRenderer.invoke('open-save-dialog', {
+        defaultPath: `${selectedRepo}.zip`,
+        filters: [{ name: 'ZIP Archives', extensions: ['zip'] }]
+      });
+
+      if (!savePath) return;
+
+      // Download the repository
+      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/download`);
+
+      if (!response.ok) {
+        throw new Error('Ошибка при скачивании репозитория');
+      }
+
+      // Convert response to blob
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Save file
+      fs.writeFileSync(savePath, buffer);
+
+      alert(`Репозиторий успешно скачан: ${savePath}`);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert(`Ошибка скачивания: ${error.message}`);
+    }
+  };
+
+  const handleSelectLocalFolder = async () => {
+    if (!selectedRepo) {
+      alert('Пожалуйста, выберите репозиторий');
+      return;
+    }
+
+    try {
+      const { ipcRenderer } = window.require('electron');
+      const path = window.require('path');
+      const fs = window.require('fs');
+
+      // Ask user to select folder
+      const folderPath = await ipcRenderer.invoke('open-folder-dialog');
+
+      if (!folderPath) return;
+
+      // Create full path
+      const repoFolder = path.join(folderPath, selectedRepo);
+
+      // Check if folder exists
+      if (fs.existsSync(repoFolder)) {
+        const overwrite = confirm(`Папка ${repoFolder} уже существует. Перезаписать?`);
+        if (!overwrite) return;
+      }
+
+      // Download the repository
+      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/download`);
+
+      if (!response.ok) {
+        throw new Error('Ошибка при скачивании репозитория');
+      }
+
+      // Convert response to blob
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Save to temp file
+      const tempZip = path.join(folderPath, `${selectedRepo}_temp.zip`);
+      fs.writeFileSync(tempZip, buffer);
+
+      // Extract ZIP
+      const extract = window.require('extract-zip');
+      await extract(tempZip, { dir: folderPath });
+
+      // Clean up temp file
+      fs.unlinkSync(tempZip);
+
+      alert(`Репозиторий успешно сохранён в: ${repoFolder}`);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert(`Ошибка скачивания: ${error.message}`);
+    }
+  };
 
   return (
     <div className="app-container">
@@ -250,13 +351,30 @@ function App() {
         {/* Left Side - Column 0 */}
         <div className="left-column">
           {/* Attach File Section */}
+
           <div className="section">
+            <div className="toggle-container">
+              <label className="toggle-label">
+                Обрабатывать через Python:
+                <input
+                  type="checkbox"
+                  checked={processWithPython}
+                  onChange={() => setProcessWithPython(!processWithPython)}
+                  className="toggle-switch"
+                />
+              </label>
+            </div>
+
             <button className="action-button" onClick={handleAttachFile}>
               Прикрепить файл
             </button>
 
             {attachedFile && (
-              <div className="attached-file-info">Прикреплён: {attachedFile}</div>
+              <div className="attached-file-info">
+                Прикреплён: {attachedFile}
+                <br />
+                Режим: {processWithPython ? "Обработка Python" : "Прямая загрузка"}
+              </div>
             )}
 
             <div className="input-group">
@@ -320,6 +438,20 @@ function App() {
               </button>
               <button className="repo-action-button" onClick={handleRefreshRepo} disabled={isLoadingRepos}>
                 {isLoadingRepos ? 'Загрузка...' : 'Обновить'}
+              </button>
+              <button
+                className="repo-action-button"
+                onClick={handleDownloadRepo}
+                disabled={!selectedRepo}
+              >
+                Скачать с сервера
+              </button>
+              <button
+                className="repo-action-button"
+                onClick={handleSelectLocalFolder}
+                disabled={!selectedRepo}
+              >
+                Выбрать локальный репозиторий
               </button>
             </div>
           </div>
