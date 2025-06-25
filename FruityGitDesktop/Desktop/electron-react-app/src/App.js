@@ -304,8 +304,16 @@ function App() {
 
       // Check if folder exists
       if (fs.existsSync(repoFolder)) {
-        const overwrite = confirm(`Папка ${repoFolder} уже существует. Перезаписать?`);
-        if (!overwrite) return;
+        // Use Electron's dialog instead of confirm
+        const { response } = await ipcRenderer.invoke('show-message-box', {
+          type: 'question',
+          buttons: ['Да', 'Нет'],
+          message: 'Папка уже существует',
+          detail: `Папка ${repoFolder} уже существует. Перезаписать?`
+        });
+
+        // Response will be 0 for 'Да', 1 for 'Нет'
+        if (response !== 0) return;
       }
 
       // Download the repository
