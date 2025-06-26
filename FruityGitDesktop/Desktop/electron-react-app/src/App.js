@@ -1,6 +1,7 @@
 // src/App.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
+import LoginWindow from './Login/Login';
 
 function App() {
   const [repoName, setRepoName] = useState('');
@@ -14,9 +15,23 @@ function App() {
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState(null);
   const [processWithPython, setProcessWithPython] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
+  const [user, setUser] = useState(null);
+
 
   // Заглушки для обработчиков событий
-  const handleLogin = () => console.log('Login clicked');
+  const handleLogin = () => {
+    setShowLogin(true);
+  };
+  const handleCloseLogin = (userData) => {
+    setShowLogin(false);
+    if (userData) {
+      setUser(userData);
+      // Optionally store in localStorage for persistence
+      localStorage.setItem('user', JSON.stringify(userData));
+    }
+  };
+
   const handleAttachFile = async () => {
     const { ipcRenderer } = window.require('electron');
     const path = window.require('path');
@@ -92,6 +107,10 @@ function App() {
         return;
       }
 
+      // Use logged-in user or default values
+      const userName = user?.name || 'defaultUser';
+      const userEmail = user?.email || 'default@email.com';
+
       const formData = new FormData();
       const { ipcRenderer } = window.require('electron');
 
@@ -114,8 +133,8 @@ function App() {
       formData.append('file', fileBlob, fileName);
       formData.append('summary', summary);
       formData.append('description', description);
-      formData.append('userName', 'defaultUser');
-      formData.append('userEmail', 'default@email.com');
+      formData.append('userName', userName);
+      formData.append('userEmail', userEmail);
 
       const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/commit`, {
         method: 'POST',
@@ -250,7 +269,6 @@ function App() {
 
     try {
       const { ipcRenderer } = window.require('electron');
-      const path = window.require('path');
       const fs = window.require('fs');
 
       // Ask user where to save
@@ -346,13 +364,32 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
   return (
     <div className="app-container">
       {/* Top Bar */}
       <div className="top-bar">
-        <button className="login-button" onClick={handleLogin}>
-          Login
-        </button>
+        {user ? (
+          <div className="user-info">
+            <span>Logged in as: {user.name || user.email}</span>
+            <button className="logout-button" onClick={() => {
+              setUser(null);
+              localStorage.removeItem('user');
+            }}>
+              Logout
+            </button>
+          </div>
+        ) : (
+          <button className="login-button" onClick={handleLogin}>
+            Login
+          </button>
+        )}
       </div>
 
       <div className="main-grid">
@@ -502,6 +539,7 @@ function App() {
             </div>
           </div>
         </div>
+        {showLogin && <LoginWindow onClose={handleCloseLogin} />}
       </div>
     </div>
   );

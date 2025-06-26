@@ -50,6 +50,52 @@ namespace FruityGitServer.Controllers
                 }
             });
         }
+
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.Email) 
+                            || string.IsNullOrEmpty(request.Password)
+                            || string.IsNullOrEmpty(request.Name))
+            {
+                return BadRequest("Name, email and password are required");
+            }
+
+            // Validate email format
+            if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(request.Email))
+            {
+                return BadRequest("Invalid email format");
+            }
+
+            // Check if email already exists
+            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            {
+                return Conflict("Email already registered");
+            }
+
+            // In a real application, you should hash the password before storing
+            var user = new User
+            {
+                Name = request.Name,
+                Email = request.Email,
+                Password = request.Password // Remember to hash this in production!
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new RegisterResponse
+            {
+                Success = true,
+                User = new UserInfo
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email
+                }
+            });
+        }
     }
 
     public class LoginRequest
@@ -69,5 +115,18 @@ namespace FruityGitServer.Controllers
         public int Id { get; set; }
         public string Name { get; set; }
         public string Email { get; set; }
+    }
+
+    public class RegisterRequest
+    {
+        public string Name { get; set; }
+        public string Email { get; set; }
+        public string Password { get; set; }
+    }
+
+    public class RegisterResponse
+    {
+        public bool Success { get; set; }
+        public UserInfo User { get; set; }
     }
 }
