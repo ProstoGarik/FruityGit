@@ -1,8 +1,7 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import LoginWindow from './Auth/Login';
-import RegisterWindow from './Auth/Register';
+import LoginWindow from './Login/Login';
 
 function App() {
   const [repoName, setRepoName] = useState('');
@@ -12,15 +11,15 @@ function App() {
   const [commits, setCommits] = useState([]);
   const [selectedCommit, setSelectedCommit] = useState(null);
   const [attachedFile, setAttachedFile] = useState(null);
-  const serverPath = 'http://192.168.135.52:8000'; // Адрес до сервера
+  const serverPath = 'http://192.168.135.52:8000'; // TODO: update to your actual server path
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState(null);
   const [processWithPython, setProcessWithPython] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState(null);
-  const [showRegister, setShowRegister] = useState(false);
 
 
+  // Заглушки для обработчиков событий
   const handleLogin = () => {
     setShowLogin(true);
   };
@@ -28,26 +27,9 @@ function App() {
     setShowLogin(false);
     if (userData) {
       setUser(userData);
+      // Optionally store in localStorage for persistence
       localStorage.setItem('user', JSON.stringify(userData));
     }
-  };
-
-  const handleRegisterClick = () => {
-    setShowLogin(false);
-    setShowRegister(true);
-  };
-
-  const handleCloseRegister = (userData) => {
-    setShowRegister(false);
-    if (userData) {
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-    }
-  };
-
-  const handleSwitchToLogin = () => {
-    setShowRegister(false);
-    setShowLogin(true);
   };
 
   const handleAttachFile = async () => {
@@ -59,6 +41,7 @@ function App() {
       if (!filePath) return;
 
       if (processWithPython) {
+        // Python processing mode
         const { spawn } = window.require('child_process');
         const appPath = await ipcRenderer.invoke('get-app-path');
 
@@ -98,6 +81,7 @@ function App() {
           }
         });
       } else {
+        // Direct attach mode
         setAttachedFile(filePath);
       }
     } catch (error) {
@@ -122,21 +106,26 @@ function App() {
         alert('Пожалуйста, введите краткое описание');
         return;
       }
+
+      // Use logged-in user or default values
       const userName = user?.name || 'defaultUser';
       const userEmail = user?.email || 'default@email.com';
 
       const formData = new FormData();
       const { ipcRenderer } = window.require('electron');
 
+      // Get file content
       const fileContent = await ipcRenderer.invoke('read-file', attachedFile);
       if (!fileContent) {
         throw new Error('Не удалось прочитать файл');
       }
 
+      // Determine file name
       const fileName = processWithPython
         ? attachedFile.split(/[\\/]/).pop().replace('.flp', '.zip')
         : attachedFile.split(/[\\/]/).pop();
 
+      // Create Blob with appropriate type
       const fileBlob = new Blob([fileContent], {
         type: processWithPython ? 'application/zip' : 'application/octet-stream'
       });
@@ -185,7 +174,7 @@ function App() {
         throw new Error('Ошибка при создании репозитория');
       }
       alert('Репозиторий успешно создан!');
-      handleRefreshRepo();
+      // Optionally refresh repo list here
     } catch (error) {
       alert(error.message);
     }
@@ -493,7 +482,7 @@ function App() {
                 Просмотреть репозиторий
               </button>
               <button className="repo-action-button" onClick={handleRefreshRepo} disabled={isLoadingRepos}>
-                {isLoadingRepos ? 'Загрузка...' : 'Обновить список'}
+                {isLoadingRepos ? 'Загрузка...' : 'Обновить'}
               </button>
               <button
                 className="repo-action-button"
@@ -550,18 +539,7 @@ function App() {
             </div>
           </div>
         </div>
-        {showLogin && (
-          <LoginWindow
-            onClose={handleCloseLogin}
-            onSwitchToRegister={handleRegisterClick}
-          />
-        )}
-        {showRegister && (
-          <RegisterWindow
-            onClose={handleCloseRegister}
-            onSwitchToLogin={handleSwitchToLogin}
-          />
-        )}
+        {showLogin && <LoginWindow onClose={handleCloseLogin} />}
       </div>
     </div>
   );

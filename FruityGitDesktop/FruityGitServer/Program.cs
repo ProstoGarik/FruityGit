@@ -50,29 +50,9 @@ app.Use(async (context, next) =>
     }
 });
 
-// Add JWT authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-        };
-    });
-
-// Fix the middleware order (Authentication must come before Authorization)
-app.UseAuthentication();
-app.UseAuthorization();
-
-
 app.UseRouting();
+app.UseAuthorization();
+app.UseAuthentication();
 app.MapControllers();
 
 app.Run();
