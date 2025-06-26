@@ -71,3 +71,25 @@
   margin-top: 10px;
   min-height: 20px;
 }
+
+/* Add to src/components/Login.css */
+.switch-auth {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}
+
+.switch-button {
+    background: none;
+    border: none;
+    color: #4CAF50;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+}
+
+.switch-button:hover {
+    color: #45a049;
+}
