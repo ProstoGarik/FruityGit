@@ -180,14 +180,11 @@ function App() {
     }
   };
 
-  const handleShowRepo = async () => {
-    if (!selectedRepo) {
-      alert('Выберите репозиторий');
-      return;
-    }
+  const handleShowRepo = async (repo) => {
+    if (!repo) return;
 
     try {
-      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/history`);
+      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(repo)}/history`);
 
       if (!response.ok) {
         throw new Error('Ошибка при получении истории коммитов');
@@ -202,7 +199,7 @@ function App() {
             ? {
               id: index,
               message: `${parts[1]} - ${parts[2]}`,
-              rawCommit: commit, // Store the original commit string
+              rawCommit: commit,
               date: parts.length >= 5 ? parts[4] : new Date().toISOString().split('T')[0]
             }
             : null;
@@ -369,6 +366,7 @@ function App() {
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
+    handleRefreshRepo();
   }, []);
 
   return (
@@ -468,7 +466,10 @@ function App() {
                   <li
                     key={index}
                     className={repo === selectedRepo ? 'selected-repo' : ''}
-                    onClick={() => setSelectedRepo(repo)}
+                    onClick={() => {
+                      setSelectedRepo(repo);
+                      handleShowRepo(repo);
+                    }}
                   >
                     {repo}
                   </li>
@@ -478,9 +479,6 @@ function App() {
             </div>
 
             <div className="repo-buttons">
-              <button className="repo-action-button" onClick={handleShowRepo}>
-                Просмотреть репозиторий
-              </button>
               <button className="repo-action-button" onClick={handleRefreshRepo} disabled={isLoadingRepos}>
                 {isLoadingRepos ? 'Загрузка...' : 'Обновить'}
               </button>
