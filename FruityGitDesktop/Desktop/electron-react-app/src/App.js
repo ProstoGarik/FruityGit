@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import LoginWindow from './Login/Login';
+import CreateRepo from './Repo/CreateRepo';
 
 function App() {
   const [repoName, setRepoName] = useState('');
@@ -17,6 +18,7 @@ function App() {
   const [processWithPython, setProcessWithPython] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState(null);
+  const [showCreateRepo, setShowCreateRepo] = useState(false);
 
 
   // Заглушки для обработчиков событий
@@ -158,23 +160,23 @@ function App() {
   };
 
 
-  const handleCreateRepo = async () => {
-    if (!repoName) {
-      alert('Введите название репозитория');
-      return;
-    }
+  const handleCreateRepo = async (repoData) => {
     try {
-      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(repoName)}/init`, {
+      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(repoData.name)}/init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ isPrivate: repoData.isPrivate }),
       });
+
       if (!response.ok) {
         throw new Error('Ошибка при создании репозитория');
       }
-      alert('Репозиторий успешно создан!');
-      // Optionally refresh repo list here
+
+      alert(`Репозиторий успешно создан! (${repoData.isPrivate ? 'Private' : 'Public'})`);
+      setShowCreateRepo(false);
+      handleRefreshRepo();
     } catch (error) {
       alert(error.message);
     }
@@ -456,7 +458,10 @@ function App() {
               />
             </div>
 
-            <button className="repo-action-button" onClick={handleCreateRepo}>
+            <button
+              className="repo-action-button"
+              onClick={() => setShowCreateRepo(true)}
+            >
               Создать репозиторий
             </button>
 
@@ -538,6 +543,13 @@ function App() {
           </div>
         </div>
         {showLogin && <LoginWindow onClose={handleCloseLogin} />}
+        
+        {showCreateRepo && (
+          <CreateRepo
+            onClose={() => setShowCreateRepo(false)}
+            onCreate={handleCreateRepo}
+          />
+        )}
       </div>
     </div>
   );
