@@ -39,46 +39,12 @@ const LoginWindow = ({ onClose }) => {
             }
 
             if (data.success) {
-                // Pass user data back to App component
+                // Pass complete user data back to App component
                 onClose({
-                    name: data.user?.name || email.split('@')[0],
-                    email: data.user?.email || email
+                    id: data.user.id,
+                    name: data.user.name,
+                    email: data.user.email
                 });
-            } else {
-                throw new Error(data.message || 'Login failed');
-            }
-        } catch (err) {
-            console.error('Login error:', err);
-            setError(err.message || 'Login failed. Please try again.');
-        } finally {
-            setIsLoading(false);
-        }
-
-        setIsLoading(true);
-
-        try {
-            const response = await fetch(`${serverPath}/api/auth/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email,
-                    password
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Login failed');
-            }
-
-            if (data.success) {
-                // Login successful - close the window or handle the user data
-                onClose();
-                // You might want to store the user data in your app state here
-                console.log('Logged in user:', data.user);
             } else {
                 throw new Error(data.message || 'Login failed');
             }
@@ -95,39 +61,51 @@ const LoginWindow = ({ onClose }) => {
             <div className="login-window">
                 <div className="login-header">
                     <h2>Вход в FruityGit</h2>
+                    <button 
+                        className="close-button" 
+                        onClick={() => onClose(null)}
+                    >
+                        ×
+                    </button>
                 </div>
 
                 <div className="login-content">
                     <form onSubmit={handleLogin}>
                         <div className="input-group">
+                            <label>Email:</label>
                             <input
-                                type="text"
+                                type="email"
                                 className="login-input"
-                                placeholder="Email"
+                                placeholder="Enter your email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
+                                required
                             />
                         </div>
 
                         <div className="input-group">
+                            <label>Password:</label>
                             <input
                                 type="password"
                                 className="login-input"
-                                placeholder="Password"
+                                placeholder="Enter your password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                required
                             />
                         </div>
 
                         {error && <div className="error-message">{error}</div>}
 
-                        <button
-                            className="login-button"
-                            type="submit"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? 'Logging in...' : 'Login'}
-                        </button>
+                        <div className="login-actions">
+                            <button
+                                className="login-button"
+                                type="submit"
+                                disabled={isLoading}
+                            >
+                                {isLoading ? 'Logging in...' : 'Login'}
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
