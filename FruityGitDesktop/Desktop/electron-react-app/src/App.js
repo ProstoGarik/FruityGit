@@ -114,9 +114,11 @@ function App() {
         return;
       }
 
-      // Use logged-in user or default values
-      const userName = user?.name || 'defaultUser';
-      const userEmail = user?.email || 'default@email.com';
+      // Use logged-in user
+      if (!user) {
+        alert('Please login first');
+        return;
+      }
 
       const formData = new FormData();
       const { ipcRenderer } = window.require('electron');
@@ -140,8 +142,8 @@ function App() {
       formData.append('file', fileBlob, fileName);
       formData.append('summary', summary);
       formData.append('description', description);
-      formData.append('userName', userName);
-      formData.append('userEmail', userEmail);
+      formData.append('UserName', user.name);  // Changed to capital case
+      formData.append('UserEmail', user.email);  // Changed to capital case
 
       const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/commit`, {
         method: 'POST',
@@ -153,7 +155,7 @@ function App() {
         setSummary('');
         setDescription('');
         setAttachedFile(null);
-        handleShowRepo();
+        handleShowRepo(selectedRepo);  // Refresh history
       } else {
         const error = await response.text();
         throw new Error(`Ошибка при коммите файла: ${error}`);
@@ -175,9 +177,9 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: user.id,
-          name: user.name,
-          email: user.email
+          Id: user.id,  // Changed to capital case
+          Name: user.name,  // Changed to capital case
+          Email: user.email  // Changed to capital case
         }),
       });
 
@@ -227,9 +229,9 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: user.id,
-          name: user.name,
-          email: user.email
+          Id: user.id,  // Changed to capital case
+          Name: user.name,  // Changed to capital case
+          Email: user.email  // Changed to capital case
         }),
       });
 
@@ -291,9 +293,9 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: user.id,
-          name: user.name,
-          email: user.email
+          Id: user.id,  // Changed to capital case
+          Name: user.name,  // Changed to capital case
+          Email: user.email  // Changed to capital case
         }),
       });
 
@@ -354,16 +356,35 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: user.id,
-          name: user.name,
-          email: user.email
+          Id: user.id,  // Changed to capital case
+          Name: user.name,  // Changed to capital case
+          Email: user.email  // Changed to capital case
         }),
       });
 
       if (!response.ok) {
         throw new Error('Ошибка при скачивании репозитория');
       }
-      // ... rest of the function remains the same
+
+      // Save the repository
+      const blob = await response.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Create the repo folder
+      fs.mkdirSync(repoFolder, { recursive: true });
+
+      // Save the zip file
+      const zipPath = path.join(repoFolder, `${selectedRepo}.zip`);
+      fs.writeFileSync(zipPath, buffer);
+
+      // Extract the zip
+      await ipcRenderer.invoke('extract-zip', zipPath, repoFolder);
+
+      // Delete the zip file
+      fs.unlinkSync(zipPath);
+
+      alert(`Репозиторий успешно скачан и распакован в: ${repoFolder}`);
     } catch (error) {
       console.error('Download error:', error);
       alert(`Ошибка скачивания: ${error.message}`);

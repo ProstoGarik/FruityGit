@@ -53,6 +53,20 @@ ipcMain.handle('read-file', async (event, filePath) => {
   }
 });
 
+ipcMain.handle('extract-zip', async (event, zipPath, extractPath) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const extract = require('extract-zip');
+      extract(zipPath, { dir: extractPath }, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+});
+
 ipcMain.handle('get-app-path', () => {
   return app.getAppPath();
 });

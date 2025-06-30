@@ -12,7 +12,6 @@ using System.IO.Compression;
 using FruityGitServer.Context;
 using Repository = FruityGitServer.Context.Repository;
 
-
 [ApiController]
 [Route("api/git")]
 public class GitController : ControllerBase
@@ -29,26 +28,39 @@ public class GitController : ControllerBase
         _reposRootPath = Path.Combine(env.ContentRootPath, "ReposFolder");
         _logger = logger;
         _context = context;
-        Directory.CreateDirectory(_reposRootPath); // Ensure repos folder exists
+        Directory.CreateDirectory(_reposRootPath);
     }
 
-    [HttpPost("{repoName}/init")]
-    public async Task<IActionResult> InitializeRepository(string repoName, [FromBody] RepositoryInitRequest request)
+    // Helper method to check repository access
+    private async Task<IActionResult> CheckRepositoryAccess(string repoName, string userEmail)
     {
-        _logger.LogInformation($"Initializing repository: {repoName}");
+        var repository = await _context.Repositories
+            .FirstOrDefaultAsync(r => r.Name == repoName);
 
+        if (repository == null)
+        {
+            return NotFound("Repository not found");
+        }
+
+        if (repository.IsPrivate && repository.AuthorEmail != userEmail)
+        {
+            return Unauthorized("You don't have permission to access this repository");
+        }
+
+        return null; // Access granted
+    }
+
+    [HttpPost("{repoName}/commit")]
+    public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequest request)
+    {
         try
         {
-            // Validate user credentials first
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.UserEmail && u.Name == request.UserName);
-                
-            if (user == null)
-            {
-                return Unauthorized("Invalid user credentials");
-            }
+            // Verify user has access to the repository
+            var accessCheck = await CheckRepositoryAccess(repoName, request.UserEmail);
+            if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
+
             Directory.CreateDirectory(_reposRootPath);
 
             // Check if repository exists
@@ -89,14 +101,14 @@ public class GitController : ControllerBase
                 Author = request.UserName
             });
         }
+        catch (RepositoryNotFoundException)
+        {
+            return BadRequest("Repository not found. Initialize the repository first.");
+        }
         catch (Exception ex)
         {
-            _logger.LogError($"Repository init failed: {ex}");
-            return StatusCode(500, new 
-            {
-                Success = false,
-                Error = ex.Message
-            });
+            _logger.LogError($"Error during commit: {ex}");
+            return StatusCode(500, $"An error occurred: {ex.Message}");
         }
     }
 
@@ -181,11 +193,14 @@ public class GitController : ControllerBase
     }
 
 
-    [HttpGet("{repoName}/history")]
-    public async Task<IActionResult> GetHistory(string repoName)
+    [HttpPost("{repoName}/history")]
+    public async Task<IActionResult> GetHistory(string repoName, [FromBody] UserInfo userInfo)
     {
         try
         {
+            // Verify user has access to the repository
+            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Email);
+            if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
             var commitHistory = new List<string>();
@@ -196,8 +211,6 @@ public class GitController : ControllerBase
                 {
                     commitHistory.Add($"{commit.Id} _idEnd_ {commit.Author.Name} _usEnd_ {commit.Message} _descEnd_ {commit.Author.When}");
                 }
-                //repo.Diff.Compare();
-
             }
 
             return Ok(commitHistory);
@@ -213,15 +226,14 @@ public class GitController : ControllerBase
         }
     }
 
-    [HttpDelete("{repoName}")]
-    public async Task<IActionResult> DeleteRepository(string repoName)
+    [HttpPost("{repoName}/delete")]
+    public async Task<IActionResult> DeleteRepository(string repoName, [FromBody] UserInfo userInfo)
     {
         try
         {
             // Verify user owns the repository
-            var userEmail = User.FindFirstValue(ClaimTypes.Email);
             var repository = await _context.Repositories
-                .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorEmail == userEmail);
+                .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorEmail == userInfo.Email);
                 
             if (repository == null)
             {
@@ -250,11 +262,15 @@ public class GitController : ControllerBase
         }
     }
 
-    [HttpGet("{repoName}/download")]
-    public IActionResult DownloadRepository(string repoName)
+    [HttpPost("{repoName}/download")]
+    public async Task<IActionResult> DownloadRepository(string repoName, [FromBody] UserInfo userInfo)
     {
         try
         {
+            // Verify user has access to the repository
+            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Email);
+            if (accessCheck != null) return accessCheck;
+
             var repoPath = Path.Combine(_reposRootPath, repoName);
             
             if (!LibGit2Sharp.Repository.IsValid(repoPath))
