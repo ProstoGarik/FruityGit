@@ -210,8 +210,13 @@ function App() {
         }),
       });
 
+      if (response.status === 401) {
+        alert("You don't have access to this private repository");
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error('Ошибка при получении истории коммитов');
+        throw new Error('Error getting commit history');
       }
 
       const commitHistory = await response.json();
@@ -258,16 +263,12 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error('Ошибка при получении списка репозиториев');
+        const errorData = await response.json();
+        throw new Error(errorData || 'Error getting repositories');
       }
 
       const repos = await response.json();
-
-      if (Array.isArray(repos)) {
-        setRepos(repos);
-      } else {
-        throw new Error('Некорректный формат данных репозиториев');
-      }
+      setRepos(repos);
     } catch (error) {
       console.error('Refresh repo error:', error);
       alert(error.message);

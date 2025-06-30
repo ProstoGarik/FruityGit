@@ -140,31 +140,42 @@ public class GitController : ControllerBase
         }
     }
 
-    [HttpGet("repositories")]
-    public async Task<IActionResult> GetRepositories()
+    [HttpPost("repositories")]
+    public async Task<IActionResult> GetRepositories([FromBody] UserInfo userInfo)
     {
         try
         {
-            _logger.LogInformation("Getting list of repositories from database");
+            _logger.LogInformation($"Getting repositories for user: {userInfo.Email}");
 
-            var repositories = await _context.Repositories
+            if (!Directory.Exists(_reposRootPath))
+            {
+                return Ok(new List<string>());
+            }
+
+            // Get all repositories from database with their privacy settings
+            var dbRepos = await _context.Repositories
                 .Include(r => r.Author)
-                .Select(r => new 
-                {
-                    Name = r.Name,
-                    Author = r.Author.Name,
-                    CreatedAt = r.CreatedAt,
-                    IsPrivate = r.IsPrivate
-                })
                 .ToListAsync();
 
-            _logger.LogInformation($"Found {repositories.Count} repositories");
-            return Ok(repositories);
+            // Filter repositories based on privacy and ownership
+            var accessibleRepos = dbRepos
+                .Where(r => !r.IsPrivate || r.AuthorEmail == userInfo.Email)
+                .Select(r => r.Name)
+                .ToList();
+
+            // Verify these repositories exist in the filesystem
+            var validRepos = Directory.GetDirectories(_reposRootPath)
+                .Where(dir => LibGit2Sharp.Repository.IsValid(dir))
+                .Select(dir => Path.GetRelativePath(_reposRootPath, dir))
+                .Where(repoName => accessibleRepos.Contains(repoName))
+                .ToList();
+
+            return Ok(validRepos);
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error getting repositories list: {ex}");
-            return StatusCode(500, $"Error getting repositories: {ex.Message}");
+            _logger.LogError($"Error getting repositories: {ex}");
+            return StatusCode(500, "Error getting repositories");
         }
     }
 
