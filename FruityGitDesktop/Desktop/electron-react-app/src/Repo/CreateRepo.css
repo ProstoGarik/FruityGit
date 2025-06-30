@@ -1,5 +1,4 @@
-/* src/CreateRepo/CreateRepo.css */
-.create-repo-modal {
+.create-repo-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -12,64 +11,136 @@
   z-index: 1000;
 }
 
-.create-repo-content {
-  background-color: white;
-  padding: 20px;
+.create-repo-modal {
+  background: white;
   border-radius: 8px;
-  width: 400px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 500px;
+  max-width: 90%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
-.create-repo-content h2 {
-  margin-top: 0;
-  color: #333;
+.create-repo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.create-repo-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+.close-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.create-repo-content {
+  padding: 24px;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
 .form-group input[type="text"] {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
   border-radius: 4px;
-  box-sizing: border-box;
+  font-size: 1rem;
 }
 
-.form-group input[type="checkbox"] {
+.checkbox-group {
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"] {
   margin-right: 8px;
+  margin-top: 2px;
+}
+
+.checkbox-label {
+  font-weight: normal;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-top: 4px;
+}
+
+.error-message {
+  color: #dc3545;
+  margin-bottom: 16px;
+  padding: 8px;
+  background-color: #f8d7da;
+  border-radius: 4px;
 }
 
 .button-group {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
+}
+
+.cancel-button, .create-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
 }
 
 .cancel-button {
-  padding: 8px 16px;
-  background-color: #f0f0f0;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  background-color: #f8f9fa;
+  border: 1px solid #ced4da;
+}
+
+.cancel-button:hover {
+  background-color: #e9ecef;
+}
+
+.cancel-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .create-button {
-  padding: 8px 16px;
   background-color: #28a745;
   color: white;
   border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 .create-button:hover {
   background-color: #218838;
+}
+
+.create-button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
 }
