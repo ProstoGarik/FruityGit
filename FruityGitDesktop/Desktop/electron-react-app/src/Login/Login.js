@@ -1,13 +1,14 @@
-// src/components/LoginWindow.js
 import React, { useState } from 'react';
 import './Login.css';
 
 const LoginWindow = ({ onClose }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [name, setName] = useState(''); // For registration
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const serverPath = 'http://192.168.135.52:8000'; // Use the same server path as in App.js
+    const [isRegistering, setIsRegistering] = useState(false); // Toggle between login/register
+    const serverPath = 'http://192.168.135.52:8000';
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -39,7 +40,6 @@ const LoginWindow = ({ onClose }) => {
             }
 
             if (data.success) {
-                // Pass complete user data back to App component
                 onClose({
                     id: data.user.id,
                     name: data.user.name,
@@ -56,11 +56,59 @@ const LoginWindow = ({ onClose }) => {
         }
     };
 
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        setError('');
+
+        if (!name || !email || !password) {
+            setError('Name, email and password are required');
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            const response = await fetch(`${serverPath}/api/auth/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name,
+                    email,
+                    password
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Registration failed');
+            }
+
+            if (data.success) {
+                // Auto-login after successful registration
+                onClose({
+                    id: data.User.Id,
+                    name: data.User.Name,
+                    email: data.User.Email
+                });
+            } else {
+                throw new Error(data.message || 'Registration failed');
+            }
+        } catch (err) {
+            console.error('Registration error:', err);
+            setError(err.message || 'Registration failed. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="login-modal-overlay">
             <div className="login-window">
                 <div className="login-header">
-                    <h2>Вход в FruityGit</h2>
+                    <h2>{isRegistering ? 'Register' : 'Login'} to FruityGit</h2>
                     <button 
                         className="close-button" 
                         onClick={() => onClose(null)}
@@ -70,7 +118,21 @@ const LoginWindow = ({ onClose }) => {
                 </div>
 
                 <div className="login-content">
-                    <form onSubmit={handleLogin}>
+                    <form onSubmit={isRegistering ? handleRegister : handleLogin}>
+                        {isRegistering && (
+                            <div className="input-group">
+                                <label>Name:</label>
+                                <input
+                                    type="text"
+                                    className="login-input"
+                                    placeholder="Enter your name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        )}
+
                         <div className="input-group">
                             <label>Email:</label>
                             <input
@@ -103,7 +165,22 @@ const LoginWindow = ({ onClose }) => {
                                 type="submit"
                                 disabled={isLoading}
                             >
-                                {isLoading ? 'Logging in...' : 'Login'}
+                                {isLoading 
+                                    ? (isRegistering ? 'Registering...' : 'Logging in...') 
+                                    : (isRegistering ? 'Register' : 'Login')}
+                            </button>
+                        </div>
+
+                        <div className="toggle-form">
+                            <button
+                                type="button"
+                                className="toggle-button"
+                                onClick={() => setIsRegistering(!isRegistering)}
+                                disabled={isLoading}
+                            >
+                                {isRegistering 
+                                    ? 'Already have an account? Login' 
+                                    : "Don't have an account? Register"}
                             </button>
                         </div>
                     </form>

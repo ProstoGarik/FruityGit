@@ -71,3 +71,44 @@
   margin-top: 10px;
   min-height: 20px;
 }
+
+.toggle-form {
+    margin-top: 15px;
+    text-align: center;
+}
+
+.toggle-button {
+    background: none;
+    border: none;
+    color: #3498db;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 5px;
+    text-decoration: underline;
+}
+
+.toggle-button:hover {
+    color: #2980b9;
+    text-decoration: none;
+}
+
+.toggle-button:disabled {
+    color: #95a5a6;
+    cursor: not-allowed;
+    text-decoration: none;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.login-input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
