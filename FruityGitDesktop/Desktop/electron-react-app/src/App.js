@@ -553,7 +553,8 @@ function App() {
 
         {showCreateRepo && (
           <CreateRepo
-            user={user}  // Add this line
+            serverPath={serverPath}  // Pass serverPath as prop
+            user={user}
             onClose={() => setShowCreateRepo(false)}
             onCreate={handleCreateRepo}
           />

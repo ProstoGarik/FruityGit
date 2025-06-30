@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import './CreateRepo.css';
 
-function CreateRepo({ onClose, onCreate, user }) {
+function CreateRepo({ serverPath, onClose, onCreate, user }) {
   const [repoName, setRepoName] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState('');
