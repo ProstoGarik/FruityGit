@@ -105,10 +105,9 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          isPrivate: repoData.isPrivate
+          UserName: user.name,
+          UserEmail: user.email,
+          IsPrivate: repoData.isPrivate
         }),
       });
 
@@ -584,6 +583,7 @@ function App() {
           <CreateRepo
             onClose={() => setShowCreateRepo(false)}
             onCreate={handleCreateRepo}
+            user={user}
           />
         )}
       </div>

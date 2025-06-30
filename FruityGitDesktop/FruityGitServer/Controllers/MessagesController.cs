@@ -32,73 +32,75 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("{repoName}/init")]
-    [Authorize]
-    public async Task<IActionResult> InitializeRepository(string repoName)
+public async Task<IActionResult> InitializeRepository(
+    string repoName, 
+    [FromBody] RepositoryInitRequest request)
     {
-        _logger.LogInformation($"Attempting to initialize repository at: {repoName}");
+        _logger.LogInformation($"Initializing repository: {repoName}");
 
         try
         {
-            var repoPath = Path.Combine(_reposRootPath, repoName);
-
-            // Check if repository already exists in filesystem
-            if (LibGit2Sharp.Repository.IsValid(repoPath))
-            {
-                _logger.LogInformation("Repository already exists");
-                return BadRequest("Repository already exists.");
-            }
-
-            // Check if repository already exists in database
-            var existingRepo = await _context.Repositories
-                .FirstOrDefaultAsync(r => r.Name == repoName);
+            // Validate user credentials first
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == request.UserEmail && u.Name == request.UserName);
                 
-            if (existingRepo != null)
-            {
-                _logger.LogInformation("Repository already exists in database");
-                return BadRequest("Repository already exists.");
-            }
-
-            // Get current user from claims
-            var userEmail = User.FindFirstValue(ClaimTypes.Email);
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == userEmail);
-            
             if (user == null)
             {
-                return Unauthorized("User not found");
+                return Unauthorized("Invalid user credentials");
             }
 
-            // Clean up if partial .git directory exists
-            if (Directory.Exists(Path.Combine(repoPath, ".git")))
+            var repoPath = Path.Combine(_reposRootPath, repoName);
+            Directory.CreateDirectory(_reposRootPath);
+
+            // Check if repository exists
+            if (LibGit2Sharp.Repository.IsValid(repoPath) || 
+                await _context.Repositories.AnyAsync(r => r.Name == repoName))
             {
-                _logger.LogWarning("Found not valid .git directory. Deleting...");
-                Directory.Delete(Path.Combine(repoPath, ".git"), true);
+                return BadRequest("Repository already exists");
             }
 
-            // Initialize git repository
-            _logger.LogInformation("Initializing new repository...");
+            // Clean up partial .git if exists
+            var gitPath = Path.Combine(repoPath, ".git");
+            if (Directory.Exists(gitPath))
+            {
+                Directory.Delete(gitPath, true);
+            }
+
+            // Initialize repository
             LibGit2Sharp.Repository.Init(repoPath);
 
             // Create database record
-            var repository = new FruityGitServer.Context.Repository
+            var repository = new Repository
             {
                 Name = repoName,
                 DirectoryPath = repoPath,
-                AuthorEmail = userEmail,
-                IsPrivate = false,
+                AuthorEmail = request.UserEmail,
+                IsPrivate = request.IsPrivate,
                 CreatedAt = DateTime.UtcNow
             };
 
             _context.Repositories.Add(repository);
             await _context.SaveChangesAsync();
 
-            return Ok("Repository initialized and registered in database.");
+            return Ok(new 
+            {
+                Success = true,
+                RepositoryName = repoName,
+                IsPrivate = request.IsPrivate,
+                Author = request.UserName
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error initializing repository: {ex}");
-            return StatusCode(500, $"Error initializing repository: {ex.Message}");
+            _logger.LogError($"Repository init failed: {ex}");
+            return StatusCode(500, new 
+            {
+                Success = false,
+                Error = ex.Message
+            });
         }
     }
+
 
     [HttpPost("{repoName}/commit")]
     public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequest request)
@@ -213,7 +215,6 @@ public class GitController : ControllerBase
     }
 
     [HttpDelete("{repoName}")]
-    [Authorize]
     public async Task<IActionResult> DeleteRepository(string repoName)
     {
         try
@@ -297,3 +298,10 @@ public class UserInfo
         public string Name { get; set; }
         public string Email { get; set; }
     }
+
+public class RepositoryInitRequest
+{
+    public string UserName { get; set; }
+    public string UserEmail { get; set; }
+    public bool IsPrivate { get; set; }
+}

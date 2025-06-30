@@ -1,48 +1,63 @@
-// src/CreateRepo/CreateRepo.js
+// src/Repo/CreateRepo.js
 import React, { useState } from 'react';
 import './CreateRepo.css';
 
-function CreateRepo({ onClose, onCreate }) {
+function CreateRepo({ onClose, onCreate, user }) {
   const [repoName, setRepoName] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const validateRepoName = (name) => {
-    // Only allow alphanumeric, hyphens, and underscores
-    return /^[a-zA-Z0-9_-]+$/.test(name);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!user) {
+      setError('You must be logged in to create repositories');
+      return;
+    }
 
     if (!repoName.trim()) {
       setError('Repository name is required');
       return;
     }
 
-    if (!validateRepoName(repoName)) {
-      setError('Only letters, numbers, hyphens and underscores are allowed');
-      return;
-    }
-
-    if (repoName.length > 100) {
-      setError('Repository name must be less than 100 characters');
+    if (!/^[a-zA-Z0-9_-]+$/.test(repoName)) {
+      setError('Only letters, numbers, hyphens and underscores allowed');
       return;
     }
 
     setIsCreating(true);
+
     try {
-      await onCreate({ 
-        name: repoName, 
-        isPrivate 
+      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(repoName)}/init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          UserName: user.name,
+          UserEmail: user.email,
+          IsPrivate: isPrivate
+        }),
       });
-      // Reset form on successful creation
-      setRepoName('');
-      setIsPrivate(false);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.Error || 'Failed to create repository');
+      }
+
+      // Success
+      onCreate({
+        name: repoName,
+        isPrivate,
+        author: user.name
+      });
+      
+      onClose();
+
     } catch (err) {
-      setError(err.message || 'Failed to create repository');
+      setError(err.message);
     } finally {
       setIsCreating(false);
     }
@@ -53,15 +68,15 @@ function CreateRepo({ onClose, onCreate }) {
       <div className="create-repo-modal">
         <div className="create-repo-header">
           <h2>Create New Repository</h2>
-          <button 
-            className="close-button" 
+          <button
+            className="close-button"
             onClick={onClose}
             disabled={isCreating}
           >
             &times;
           </button>
         </div>
-        
+
         <div className="create-repo-content">
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -94,7 +109,7 @@ function CreateRepo({ onClose, onCreate }) {
                 />
                 <span className="checkbox-label">Private Repository</span>
                 <div className="hint">
-                  Private repositories are only visible to you
+                  Only you will be able to see and access this repository
                 </div>
               </label>
             </div>
@@ -102,16 +117,16 @@ function CreateRepo({ onClose, onCreate }) {
             {error && <div className="error-message">{error}</div>}
 
             <div className="button-group">
-              <button 
-                type="button" 
-                className="cancel-button" 
+              <button
+                type="button"
+                className="cancel-button"
                 onClick={onClose}
                 disabled={isCreating}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="create-button"
                 disabled={isCreating || !repoName.trim()}
               >
