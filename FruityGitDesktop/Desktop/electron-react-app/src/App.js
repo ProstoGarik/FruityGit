@@ -92,37 +92,9 @@ function App() {
     }
   };
 
-  const handleCreateRepo = async (repoData) => {
-    if (!user) {
-      alert('Please login to create repositories');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(repoData.name)}/init`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          UserName: user.name,
-          UserEmail: user.email,
-          IsPrivate: repoData.isPrivate
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create repository');
-      }
-
-      alert(`Repository "${repoData.name}" created successfully!`);
-      setShowCreateRepo(false);
-      handleRefreshRepo(); // Refresh the repository list
-    } catch (error) {
-      console.error('Create repo error:', error);
-      alert(`Error creating repository: ${error.message}`);
-    }
+  const handleCreateRepo = (repoData) => {
+    setShowCreateRepo(false);
+    handleRefreshRepo();
   };
 
   const handleSend = async () => {
@@ -581,9 +553,9 @@ function App() {
 
         {showCreateRepo && (
           <CreateRepo
+            user={user}  // Add this line
             onClose={() => setShowCreateRepo(false)}
             onCreate={handleCreateRepo}
-            user={user}
           />
         )}
       </div>

@@ -8,6 +8,8 @@ function CreateRepo({ onClose, onCreate, user }) {
   const [error, setError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -17,6 +19,7 @@ function CreateRepo({ onClose, onCreate, user }) {
       return;
     }
 
+    // Validation
     if (!repoName.trim()) {
       setError('Repository name is required');
       return;
@@ -48,14 +51,18 @@ function CreateRepo({ onClose, onCreate, user }) {
       }
 
       // Success
+      setRepoName('');
+      setIsPrivate(false);
+      onClose();
+
+      // Notify parent component
       onCreate({
         name: repoName,
         isPrivate,
         author: user.name
       });
-      
-      onClose();
 
+      alert(`Repository "${repoName}" created successfully!`);
     } catch (err) {
       setError(err.message);
     } finally {

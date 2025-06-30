@@ -10,6 +10,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.IO.Compression;
 using FruityGitServer.Context;
+using Repository = FruityGitServer.Context.Repository;
 
 
 [ApiController]
@@ -32,9 +33,7 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("{repoName}/init")]
-public async Task<IActionResult> InitializeRepository(
-    string repoName, 
-    [FromBody] RepositoryInitRequest request)
+    public async Task<IActionResult> InitializeRepository(string repoName, [FromBody] RepositoryInitRequest request)
     {
         _logger.LogInformation($"Initializing repository: {repoName}");
 
@@ -70,7 +69,7 @@ public async Task<IActionResult> InitializeRepository(
             LibGit2Sharp.Repository.Init(repoPath);
 
             // Create database record
-            var repository = new Repository
+            var repository = new FruityGitServer.Context.Repository
             {
                 Name = repoName,
                 DirectoryPath = repoPath,
