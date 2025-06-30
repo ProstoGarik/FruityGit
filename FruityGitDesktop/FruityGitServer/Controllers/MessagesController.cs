@@ -79,7 +79,7 @@ public class GitController : ControllerBase
             LibGit2Sharp.Repository.Init(repoPath);
 
             // Create database record
-            var repository = new Repository
+            var repository = new FruityGitServer.Context.Repository
             {
                 Name = repoName,
                 DirectoryPath = repoPath,
