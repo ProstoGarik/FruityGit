@@ -290,3 +290,10 @@ public class CommitRequest
     public string UserEmail { get; set; }
     public IFormFile File { get; set; }
 }
+
+public class UserInfo
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Email { get; set; }
+    }
