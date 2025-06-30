@@ -50,12 +50,12 @@ public class GitController : ControllerBase
         return null; // Access granted
     }
 
-    [HttpPost("{repoName}/commit")]
-    public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequest request)
+    [HttpPost("{repoName}/init")]
+    public async Task<IActionResult> InitializeRepository(string repoName, [FromBody] RepositoryInitRequest request)
     {
         try
         {
-            // Verify user has access to the repository
+            _logger.LogInformation($"Initializing repository: {repoName}");
             var accessCheck = await CheckRepositoryAccess(repoName, request.UserEmail);
             if (accessCheck != null) return accessCheck;
 
