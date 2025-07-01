@@ -21,7 +21,7 @@ RUN dotnet build "FruityGitServer.csproj" -c Release -o /app/build
 FROM build AS publish
 RUN dotnet publish "FruityGitServer.csproj" -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS runtime
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "FruityGitServer.dll"]
