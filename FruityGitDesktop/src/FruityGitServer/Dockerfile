@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 
 # Environment variables
 ENV DOTNET_NUGET_SIGNATURE_VERIFICATION=false \
@@ -10,7 +10,7 @@ ENV DOTNET_NUGET_SIGNATURE_VERIFICATION=false \
 WORKDIR /src
 
 # Copy csproj and restore as distinct layers
-COPY ["./src/FruityGitServer/FruityGitServer.csproj", "src/FruityGitServer/"]
+COPY ["src/FruityGitServer/FruityGitServer.csproj", "src/FruityGitServer/"]
 RUN dotnet restore "src/FruityGitServer/FruityGitServer.csproj"
 
 # Copy everything else and build
