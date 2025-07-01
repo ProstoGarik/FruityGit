@@ -15,7 +15,7 @@ RUN dotnet restore "src/FruityGitServer/FruityGitServer.csproj"
 
 # Copy everything else and build
 COPY . .
-WORKDIR "/src/FruityGitServer"
+WORKDIR "src/FruityGitServer"
 RUN dotnet build "FruityGitServer.csproj" -c Release -o /app/build
 
 FROM build AS publish
