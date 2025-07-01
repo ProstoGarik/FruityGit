@@ -1,0 +1,341 @@
+{
+  "Routes": [
+    {
+      "UpstreamPathTemplate": "/api/group",
+      "UpstreamHttpMethod": [
+        "Get",
+        "Post",
+        "Delete"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "gardenapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/group",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/plant_variety",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "gardenapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/plant_variety",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/plant_type",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "gardenapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/plant_type",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/watering",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "gardenapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/watering",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/light",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "gardenapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/light",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/stage",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "gardenapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/stage",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/event",
+      "UpstreamHttpMethod": [
+        "Get",
+        "Post",
+        "Delete"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "assistantapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/event",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/garden_type",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "assistantapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/garden_type",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/garden",
+      "UpstreamHttpMethod": [
+        "Get",
+        "Post",
+        "Delete"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "assistantapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/garden",
+      "AuthenticationOptions": {
+        "AuthenticationProviderKey": "Bearer",
+        "AllowedScopes": []
+      },
+      "RouteClaimsRequirement": {
+        "Role": [
+          "Administrator",
+          "User"
+        ]
+      }
+    },
+    {
+      "UpstreamPathTemplate": "/api/recognize",
+      "UpstreamHttpMethod": [
+        "Post"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "recognizeapi",
+          "Port": 80
+        }
+      ],
+      "DownstreamPathTemplate": "/recognize"
+    },
+    {
+      "UpstreamPathTemplate": "/api/prefill",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "recognizeapi",
+          "Port": 80
+        }
+      ],
+      "DownstreamPathTemplate": "/prefill"
+    },
+    {
+      "UpstreamPathTemplate": "/api/search",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "recognizeapi",
+          "Port": 80
+        }
+      ],
+      "DownstreamPathTemplate": "/search"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/login",
+      "UpstreamHttpMethod": [
+        "Post"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "authapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/login"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/register",
+      "UpstreamHttpMethod": [
+        "Post"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "authapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/register"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/validate",
+      "UpstreamHttpMethod": [
+        "Get"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "authapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/validate"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/refresh",
+      "UpstreamHttpMethod": [
+        "Post"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "authapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/refresh"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/logout",
+      "UpstreamHttpMethod": [
+        "Post"
+      ],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "authapi",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/logout"
+    }
+  ],
+  "GlobalConfiguration": {
+    "BaseUrl": "http://localhost:8080"
+  }
+}

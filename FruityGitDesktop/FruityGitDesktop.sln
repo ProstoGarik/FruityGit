@@ -3,16 +3,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35122.118
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FruityGitServer", "FruityGitServer\FruityGitServer.csproj", "{A75BAE4D-837E-425E-B1A0-E1E419F8A11A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FruityGitServer", "src\FruityGitServer\FruityGitServer.csproj", "{A75BAE4D-837E-425E-B1A0-E1E419F8A11A}"
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Service", "Service", "{1D7A74DF-FFBD-488C-A3C2-5EDF9273EF82}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ApiGateway", "src\ApiGateway\ApiGateway.csproj", "{9F13A729-2BFF-436F-99B6-5BA90DD4111F}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Элементы решения", "Элементы решения", "{5ECA4E23-43FB-4185-92B5-A740A5CAFCE0}"
-	ProjectSection(SolutionItems) = preProject
-		Service\AppDbContext.cs = Service\AppDbContext.cs
-	EndProjectSection
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AuthAPI", "src\AuthAPI\AuthAPI.csproj", "{30BB9B21-F458-4C8C-9281-225EF115E3A0}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JwtAuthenticationManager", "src\JwtAuthenticationManager\JwtAuthenticationManager.csproj", "{74E8BA20-EC45-4C56-BB9B-9A20327C36B5}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EntityLibrary", "src\EntityLibrary\EntityLibrary.csproj", "{62FFB61E-C39A-4897-A266-8969092449FA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -28,6 +29,22 @@ Global
 		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2DAAF01A-0A4D-4111-8C43-EDD1C0FCCD23}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F13A729-2BFF-436F-99B6-5BA90DD4111F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F13A729-2BFF-436F-99B6-5BA90DD4111F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F13A729-2BFF-436F-99B6-5BA90DD4111F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F13A729-2BFF-436F-99B6-5BA90DD4111F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{30BB9B21-F458-4C8C-9281-225EF115E3A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{30BB9B21-F458-4C8C-9281-225EF115E3A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{30BB9B21-F458-4C8C-9281-225EF115E3A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{30BB9B21-F458-4C8C-9281-225EF115E3A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{74E8BA20-EC45-4C56-BB9B-9A20327C36B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{74E8BA20-EC45-4C56-BB9B-9A20327C36B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{74E8BA20-EC45-4C56-BB9B-9A20327C36B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{74E8BA20-EC45-4C56-BB9B-9A20327C36B5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{62FFB61E-C39A-4897-A266-8969092449FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{62FFB61E-C39A-4897-A266-8969092449FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{62FFB61E-C39A-4897-A266-8969092449FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{62FFB61E-C39A-4897-A266-8969092449FA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
