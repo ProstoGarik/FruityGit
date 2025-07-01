@@ -10,8 +10,8 @@ ENV DOTNET_NUGET_SIGNATURE_VERIFICATION=false \
 WORKDIR /src
 
 # Copy csproj and restore as distinct layers
-COPY ["FruityGitServer/FruityGitServer.csproj", "FruityGitServer/"]
-RUN dotnet restore "FruityGitServer/FruityGitServer.csproj"
+COPY ["src/FruityGitServer/FruityGitServer.csproj", "src/FruityGitServer/"]
+RUN dotnet restore "./src/FruityGitServer/FruityGitServer.csproj"
 
 # Copy everything else and build
 COPY . .
