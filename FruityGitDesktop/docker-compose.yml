@@ -134,7 +134,7 @@ services:
     container_name: "fruity-server"
     build:
       context: .
-      dockerfile: FruityGitServer/Dockerfile
+      dockerfile: src/FruityGitServer/Dockerfile
     ports:
       - "8000:8080"
     networks:
