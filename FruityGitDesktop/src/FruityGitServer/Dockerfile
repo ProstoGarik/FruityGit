@@ -11,7 +11,7 @@ WORKDIR /src
 
 # Copy csproj and restore as distinct layers
 COPY ["src/FruityGitServer/FruityGitServer.csproj", "src/FruityGitServer/"]
-RUN dotnet restore "./src/FruityGitServer/FruityGitServer.csproj"
+RUN dotnet restore "src/FruityGitServer/FruityGitServer.csproj"
 
 # Copy everything else and build
 COPY . .
