@@ -166,6 +166,17 @@ function App() {
     }
   };
 
+  const clearAppState = () => {
+    setRepoName('');
+    setSummary('');
+    setDescription('');
+    setRepos([]);
+    setCommits([]);
+    setSelectedCommit(null);
+    setAttachedFile(null);
+    setSelectedRepo(null);
+  };
+
 
   const handleShowRepo = async (repo) => {
     if (!repo || !user) return;
@@ -395,8 +406,10 @@ function App() {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
+      handleRefreshRepo();
+    } else {
+      clearAppState();  // Add this line to clear state if no user
     }
-    handleRefreshRepo();
   }, []);
 
   return (
@@ -409,6 +422,7 @@ function App() {
             <button className="logout-button" onClick={() => {
               setUser(null);
               localStorage.removeItem('user');
+              clearAppState();  // Add this line
             }}>
               Logout
             </button>
