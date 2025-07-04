@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import './Login.css';
 
-const LoginWindow = ({ onClose }) => {
+const LoginWindow = ({ onClose, serverPath }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState(''); // For registration
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false); // Toggle between login/register
-    const serverPath = 'http://192.168.135.52:8000';
 
     const handleLogin = async (e) => {
         e.preventDefault();

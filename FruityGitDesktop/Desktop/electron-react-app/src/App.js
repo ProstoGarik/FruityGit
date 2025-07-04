@@ -12,7 +12,7 @@ function App() {
   const [commits, setCommits] = useState([]);
   const [selectedCommit, setSelectedCommit] = useState(null);
   const [attachedFile, setAttachedFile] = useState(null);
-  const serverPath = 'http://192.168.135.52:8000'; // TODO: update to your actual server path
+  const serverPath = 'http://192.168.135.52:8080';
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState(null);
   const [processWithPython, setProcessWithPython] = useState(true);
@@ -21,7 +21,6 @@ function App() {
   const [showCreateRepo, setShowCreateRepo] = useState(false);
 
 
-  // Заглушки для обработчиков событий
   const handleLogin = () => {
     setShowLogin(true);
   };
@@ -584,7 +583,10 @@ function App() {
             </div>
           </div>
         </div>
-        {showLogin && <LoginWindow onClose={handleCloseLogin} />}
+        {showLogin && <LoginWindow
+          onClose={handleCloseLogin}
+          serverPath={serverPath}
+        />}
 
         {showCreateRepo && (
           <CreateRepo
