@@ -1,6 +1,66 @@
 {
   "Routes": [
     {
+      "UpstreamPathTemplate": "/api/auth/login",
+      "UpstreamHttpMethod": ["Post"],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "auth-api",
+          "Port": 80
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/login"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/register",
+      "UpstreamHttpMethod": ["Post"],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "auth-api",
+          "Port": 80
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/register"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/validate",
+      "UpstreamHttpMethod": ["Get"],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "auth-api",
+          "Port": 80
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/validate"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/refresh",
+      "UpstreamHttpMethod": ["Post"],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "auth-api",
+          "Port": 80
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/refresh"
+    },
+    {
+      "UpstreamPathTemplate": "/api/auth/logout",
+      "UpstreamHttpMethod": ["Post"],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "auth-api",
+          "Port": 80
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/logout"
+    },
+    {
       "UpstreamPathTemplate": "/api/git/{repoName}/init",
       "UpstreamHttpMethod": [ "Post" ],
       "DownstreamScheme": "http",

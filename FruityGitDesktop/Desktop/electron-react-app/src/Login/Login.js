@@ -27,8 +27,8 @@ const LoginWindow = ({ onClose, serverPath }) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    email,
-                    password
+                    Email: email,
+                    Password: password
                 }),
             });
 
@@ -38,15 +38,16 @@ const LoginWindow = ({ onClose, serverPath }) => {
                 throw new Error(data.message || 'Login failed');
             }
 
-            if (data.success) {
-                onClose({
-                    id: data.user.id,
-                    name: data.user.name,
-                    email: data.user.email
-                });
-            } else {
-                throw new Error(data.message || 'Login failed');
-            }
+            // Store tokens in localStorage
+            localStorage.setItem('accessToken', data.Token);
+            localStorage.setItem('refreshToken', data.RefreshToken);
+
+            onClose({
+                id: data.User.Id,
+                name: data.User.UserName || email,
+                email: email,
+                roles: data.UserRoles // If you need roles
+            });
         } catch (err) {
             console.error('Login error:', err);
             setError(err.message || 'Login failed. Please try again.');
@@ -73,9 +74,9 @@ const LoginWindow = ({ onClose, serverPath }) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    name,
-                    email,
-                    password
+                    Email: email,
+                    Password: password,
+                    RoleName: 'User' // Default role, adjust as needed
                 }),
             });
 
@@ -85,16 +86,16 @@ const LoginWindow = ({ onClose, serverPath }) => {
                 throw new Error(data.message || 'Registration failed');
             }
 
-            if (data.success) {
-                // Auto-login after successful registration
-                onClose({
-                    id: data.User.Id,
-                    name: data.User.Name,
-                    email: data.User.Email
-                });
-            } else {
-                throw new Error(data.message || 'Registration failed');
-            }
+            // Store tokens in localStorage
+            localStorage.setItem('accessToken', data.Token);
+            localStorage.setItem('refreshToken', data.RefreshToken);
+
+            onClose({
+                id: data.User.Id,
+                name: name,
+                email: email,
+                roles: [data.RoleName] // Assuming single role
+            });
         } catch (err) {
             console.error('Registration error:', err);
             setError(err.message || 'Registration failed. Please try again.');
@@ -108,8 +109,8 @@ const LoginWindow = ({ onClose, serverPath }) => {
             <div className="login-window">
                 <div className="login-header">
                     <h2>{isRegistering ? 'Register' : 'Login'} to FruityGit</h2>
-                    <button 
-                        className="close-button" 
+                    <button
+                        className="close-button"
                         onClick={() => onClose(null)}
                     >
                         ×
@@ -164,8 +165,8 @@ const LoginWindow = ({ onClose, serverPath }) => {
                                 type="submit"
                                 disabled={isLoading}
                             >
-                                {isLoading 
-                                    ? (isRegistering ? 'Registering...' : 'Logging in...') 
+                                {isLoading
+                                    ? (isRegistering ? 'Registering...' : 'Logging in...')
                                     : (isRegistering ? 'Register' : 'Login')}
                             </button>
                         </div>
@@ -177,8 +178,8 @@ const LoginWindow = ({ onClose, serverPath }) => {
                                 onClick={() => setIsRegistering(!isRegistering)}
                                 disabled={isLoading}
                             >
-                                {isRegistering 
-                                    ? 'Already have an account? Login' 
+                                {isRegistering
+                                    ? 'Already have an account? Login'
                                     : "Don't have an account? Register"}
                             </button>
                         </div>

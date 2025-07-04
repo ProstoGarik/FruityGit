@@ -20,10 +20,64 @@ function App() {
   const [user, setUser] = useState(null);
   const [showCreateRepo, setShowCreateRepo] = useState(false);
 
+  const fetchWithAuth = async (url, options = {}) => {
+    const accessToken = getAccessToken();
+    const serverPath = 'http://192.168.1.54:8081'; // Or get from config
+
+    // Add authorization header if token exists
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...options.headers
+    };
+
+    let response = await fetchWithAuth(url, { ...options, headers });
+
+    // If unauthorized, try to refresh token and retry
+    if (response.status === 401) {
+      const newToken = await refreshAuthToken(serverPath);
+      if (newToken) {
+        headers.Authorization = `Bearer ${newToken}`;
+        response = await fetchWithAuth(url, { ...options, headers });
+      } else {
+        // Force logout if refresh fails
+        localStorage.removeItem('user');
+        window.location.reload();
+        return;
+      }
+    }
+
+    return response;
+  };
 
   const handleLogin = () => {
     setShowLogin(true);
   };
+
+  const handleLogout = async () => {
+    try {
+      // Call logout API if needed
+      await fetch(`${serverPath}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken()}`
+        },
+        body: JSON.stringify({
+          Email: user.email
+        }),
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear all auth data
+      clearTokens();
+      localStorage.removeItem('user');
+      setUser(null);
+      clearAppState();
+    }
+  };
+
   const handleCloseLogin = (userData) => {
     setShowLogin(false);
     if (userData) {
@@ -144,7 +198,7 @@ function App() {
       formData.append('UserName', user.name);  // Changed to capital case
       formData.append('UserEmail', user.email);  // Changed to capital case
 
-      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/commit`, {
+      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/commit`, {
         method: 'POST',
         body: formData,
       });
@@ -181,7 +235,7 @@ function App() {
     if (!repo || !user) return;
 
     try {
-      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(repo)}/history`, {
+      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(repo)}/history`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -233,7 +287,7 @@ function App() {
 
     setIsLoadingRepos(true);
     try {
-      const response = await fetch(`${serverPath}/api/git/repositories`, {
+      const response = await fetchWithAuth(`${serverPath}/api/git/repositories`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -297,7 +351,7 @@ function App() {
       if (!savePath) return;
 
       // Download the repository with user credentials
-      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/download`, {
+      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/download`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -360,7 +414,7 @@ function App() {
       }
 
       // Download the repository with user credentials
-      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/download`, {
+      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/download`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -402,13 +456,38 @@ function App() {
   };
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      handleRefreshRepo();
-    } else {
-      clearAppState();  // Add this line to clear state if no user
-    }
+    const verifyToken = async () => {
+      const storedUser = localStorage.getItem('user');
+      const accessToken = getAccessToken();
+
+      if (storedUser && accessToken) {
+        try {
+          // Validate token with server
+          const response = await fetch(`${serverPath}/api/auth/validate?email=${encodeURIComponent(JSON.parse(storedUser).email)}&token=${accessToken}`);
+
+          if (response.ok) {
+            setUser(JSON.parse(storedUser));
+            handleRefreshRepo();
+          } else {
+            // Token is invalid, try to refresh
+            const newToken = await refreshAuthToken(serverPath);
+            if (newToken) {
+              setUser(JSON.parse(storedUser));
+              handleRefreshRepo();
+            } else {
+              clearAppState();
+            }
+          }
+        } catch (error) {
+          console.error('Token validation error:', error);
+          clearAppState();
+        }
+      } else {
+        clearAppState();
+      }
+    };
+
+    verifyToken();
   }, []);
 
   return (

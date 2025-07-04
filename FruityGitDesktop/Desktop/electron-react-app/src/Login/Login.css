@@ -112,3 +112,28 @@
     border-radius: 4px;
     box-sizing: border-box;
 }
+.error-message {
+    color: #ff4444;
+    margin: 10px 0;
+    padding: 8px;
+    background-color: #ffeeee;
+    border-radius: 4px;
+    border: 1px solid #ffcccc;
+}
+
+.loading-spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

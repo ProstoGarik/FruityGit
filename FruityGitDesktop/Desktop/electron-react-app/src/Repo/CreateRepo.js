@@ -8,8 +8,6 @@ function CreateRepo({ serverPath, onClose, onCreate, user }) {
   const [error, setError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
