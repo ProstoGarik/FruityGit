@@ -7,7 +7,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "auth-api",
-          "Port": 80
+          "Port": 8080
         }
       ],
       "DownstreamPathTemplate": "/api/auth/login"
@@ -19,7 +19,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "auth-api",
-          "Port": 80
+          "Port": 8080
         }
       ],
       "DownstreamPathTemplate": "/api/auth/register"
@@ -31,7 +31,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "auth-api",
-          "Port": 80
+          "Port": 8080
         }
       ],
       "DownstreamPathTemplate": "/api/auth/validate"
@@ -43,7 +43,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "auth-api",
-          "Port": 80
+          "Port": 8080
         }
       ],
       "DownstreamPathTemplate": "/api/auth/refresh"
@@ -55,7 +55,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "auth-api",
-          "Port": 80
+          "Port": 8080
         }
       ],
       "DownstreamPathTemplate": "/api/auth/logout"
