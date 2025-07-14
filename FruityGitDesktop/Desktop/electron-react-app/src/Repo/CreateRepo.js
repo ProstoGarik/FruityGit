@@ -1,13 +1,36 @@
-// src/Repo/CreateRepo.js
 import React, { useState } from 'react';
 import './CreateRepo.css';
+import { getAccessToken, refreshAuthToken } from '../Login/AuthService';
 
-
-function CreateRepo({ serverPath, onClose, onCreate, user }) {
+function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
   const [repoName, setRepoName] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  const fetchWithAuth = async (url, options = {}, isRetry = false) => {
+    const accessToken = getAccessToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...options.headers
+    };
+
+    let response = await fetch(url, { ...options, headers });
+
+    if (response.status === 401 && !isRetry) {
+      const newToken = await refreshAuthToken(serverPath);
+      if (newToken) {
+        headers.Authorization = `Bearer ${newToken}`;
+        return fetchWithAuth(url, { ...options, headers }, true);
+      } else {
+        handleLogout();
+        throw new Error('Session expired. Please login again.');
+      }
+    }
+
+    return response;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +41,6 @@ function CreateRepo({ serverPath, onClose, onCreate, user }) {
       return;
     }
 
-    // Validation
     if (!repoName.trim()) {
       setError('Repository name is required');
       return;
@@ -32,7 +54,7 @@ function CreateRepo({ serverPath, onClose, onCreate, user }) {
     setIsCreating(true);
 
     try {
-      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(repoName)}/init`, {
+      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(repoName)}/init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,21 +68,17 @@ function CreateRepo({ serverPath, onClose, onCreate, user }) {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.Error || 'Failed to create repository');
+        throw new Error(errorData.message || 'Failed to create repository');
       }
 
-      // Success
       setRepoName('');
       setIsPrivate(false);
       onClose();
-
-      // Notify parent component
       onCreate({
         name: repoName,
         isPrivate,
         author: user.name
       });
-
       alert(`Repository "${repoName}" created successfully!`);
     } catch (err) {
       setError(err.message);
