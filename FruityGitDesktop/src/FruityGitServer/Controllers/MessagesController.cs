@@ -154,10 +154,15 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("repositories")]
-    public async Task<IActionResult> GetRepositories([FromBody] UserInfo userInfo)
+    public async Task<IActionResult> GetRepositories([FromBody] UserInfoDto userInfo)
     {
         try
         {
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
+            {
+                return BadRequest("User information is required");
+            }
+
             _logger.LogInformation($"Getting repositories for user: {userInfo.Email}");
 
             if (!Directory.Exists(_reposRootPath))
@@ -192,12 +197,16 @@ public class GitController : ControllerBase
         }
     }
 
-
     [HttpPost("{repoName}/history")]
-    public async Task<IActionResult> GetHistory(string repoName, [FromBody] UserInfo userInfo)
+    public async Task<IActionResult> GetHistory(string repoName, [FromBody] UserInfoDto userInfo)
     {
         try
         {
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
+            {
+                return BadRequest("User information is required");
+            }
+
             // Verify user has access to the repository
             var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Email);
             if (accessCheck != null) return accessCheck;
@@ -307,16 +316,16 @@ public class CommitRequest
     public IFormFile File { get; set; }
 }
 
-public class UserInfo
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Email { get; set; }
-    }
-
 public class RepositoryInitRequest
 {
     public string UserName { get; set; }
     public string UserEmail { get; set; }
     public bool IsPrivate { get; set; }
 }
+
+public class UserInfoDto
+    {
+        public string Id { get; set; }  // Changed to string to match GUID
+        public string Name { get; set; }
+        public string Email { get; set; }
+    }
