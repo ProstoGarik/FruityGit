@@ -37,7 +37,6 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("{repoName}/init")]
-    [Authorize]
     public async Task<IActionResult> InitializeRepository(string repoName, [FromBody] RepositoryInitRequest request)
     {
         try
