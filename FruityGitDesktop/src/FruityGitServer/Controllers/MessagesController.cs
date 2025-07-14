@@ -31,23 +31,11 @@ public class GitController : ControllerBase
         Directory.CreateDirectory(_reposRootPath);
     }
 
-    // Helper method to check repository access
-    private async Task<IActionResult> CheckRepositoryAccess(string repoName, string userEmail)
+    public class UserInfoDto
     {
-        var repository = await _context.Repositories
-            .FirstOrDefaultAsync(r => r.Name == repoName);
-
-        if (repository == null)
-        {
-            return NotFound("Repository not found");
-        }
-
-        if (repository.IsPrivate && repository.AuthorEmail != userEmail)
-        {
-            return Unauthorized("You don't have permission to access this repository");
-        }
-
-        return null; // Access granted
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Email { get; set; }
     }
 
     [HttpPost("{repoName}/init")]
@@ -55,33 +43,31 @@ public class GitController : ControllerBase
     {
         try
         {
+            if (request == null || string.IsNullOrEmpty(request.UserEmail))
+            {
+                return BadRequest("User information is required");
+            }
+
             _logger.LogInformation($"Initializing repository: {repoName}");
-            var accessCheck = await CheckRepositoryAccess(repoName, request.UserEmail);
-            if (accessCheck != null) return accessCheck;
-
+            
             var repoPath = Path.Combine(_reposRootPath, repoName);
-
             Directory.CreateDirectory(_reposRootPath);
 
-            // Check if repository exists
             if (LibGit2Sharp.Repository.IsValid(repoPath) || 
                 await _context.Repositories.AnyAsync(r => r.Name == repoName))
             {
                 return BadRequest("Repository already exists");
             }
 
-            // Clean up partial .git if exists
             var gitPath = Path.Combine(repoPath, ".git");
             if (Directory.Exists(gitPath))
             {
                 Directory.Delete(gitPath, true);
             }
 
-            // Initialize repository
             LibGit2Sharp.Repository.Init(repoPath);
 
-            // Create database record
-            var repository = new FruityGitServer.Context.Repository
+            var repository = new Repository
             {
                 Name = repoName,
                 DirectoryPath = repoPath,
@@ -101,23 +87,26 @@ public class GitController : ControllerBase
                 Author = request.UserName
             });
         }
-        catch (RepositoryNotFoundException)
-        {
-            return BadRequest("Repository not found. Initialize the repository first.");
-        }
         catch (Exception ex)
         {
-            _logger.LogError($"Error during commit: {ex}");
+            _logger.LogError($"Error initializing repository: {ex}");
             return StatusCode(500, $"An error occurred: {ex.Message}");
         }
     }
-
 
     [HttpPost("{repoName}/commit")]
     public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequest request)
     {
         try
         {
+            if (request == null || string.IsNullOrEmpty(request.UserEmail))
+            {
+                return BadRequest("User information is required");
+            }
+
+            var accessCheck = await CheckRepositoryAccess(repoName, request.UserEmail);
+            if (accessCheck != null) return accessCheck;
+
             var repoPath = Path.Combine(_reposRootPath, repoName);
             using (var repo = new LibGit2Sharp.Repository(repoPath))
             {
@@ -141,10 +130,6 @@ public class GitController : ControllerBase
 
                 return Ok("Commit created.");
             }
-        }
-        catch (RepositoryNotFoundException)
-        {
-            return BadRequest("Repository not found. Initialize the repository first.");
         }
         catch (Exception ex)
         {
@@ -170,18 +155,15 @@ public class GitController : ControllerBase
                 return Ok(new List<string>());
             }
 
-            // Get all repositories from database with their privacy settings
             var dbRepos = await _context.Repositories
                 .Include(r => r.Author)
                 .ToListAsync();
 
-            // Filter repositories based on privacy and ownership
             var accessibleRepos = dbRepos
                 .Where(r => !r.IsPrivate || r.AuthorEmail == userInfo.Email)
                 .Select(r => r.Name)
                 .ToList();
 
-            // Verify these repositories exist in the filesystem
             var validRepos = Directory.GetDirectories(_reposRootPath)
                 .Where(dir => LibGit2Sharp.Repository.IsValid(dir))
                 .Select(dir => Path.GetRelativePath(_reposRootPath, dir))
@@ -207,7 +189,6 @@ public class GitController : ControllerBase
                 return BadRequest("User information is required");
             }
 
-            // Verify user has access to the repository
             var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Email);
             if (accessCheck != null) return accessCheck;
 
@@ -224,10 +205,6 @@ public class GitController : ControllerBase
 
             return Ok(commitHistory);
         }
-        catch (RepositoryNotFoundException)
-        {
-            return BadRequest("Repository not found. Initialize the repository first.");
-        }
         catch (Exception ex)
         {
             _logger.LogError($"Error getting history: {ex}");
@@ -236,11 +213,15 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("{repoName}/delete")]
-    public async Task<IActionResult> DeleteRepository(string repoName, [FromBody] UserInfo userInfo)
+    public async Task<IActionResult> DeleteRepository(string repoName, [FromBody] UserInfoDto userInfo)
     {
         try
         {
-            // Verify user owns the repository
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
+            {
+                return BadRequest("User information is required");
+            }
+
             var repository = await _context.Repositories
                 .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorEmail == userInfo.Email);
                 
@@ -251,13 +232,11 @@ public class GitController : ControllerBase
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
 
-            // Delete from filesystem
             if (Directory.Exists(repoPath))
             {
                 Directory.Delete(repoPath, recursive: true);
             }
 
-            // Delete from database
             _context.Repositories.Remove(repository);
             await _context.SaveChangesAsync();
 
@@ -272,11 +251,15 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("{repoName}/download")]
-    public async Task<IActionResult> DownloadRepository(string repoName, [FromBody] UserInfo userInfo)
+    public async Task<IActionResult> DownloadRepository(string repoName, [FromBody] UserInfoDto userInfo)
     {
         try
         {
-            // Verify user has access to the repository
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
+            {
+                return BadRequest("User information is required");
+            }
+
             var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Email);
             if (accessCheck != null) return accessCheck;
 
@@ -287,14 +270,11 @@ public class GitController : ControllerBase
                 return NotFound("Repository not found");
             }
 
-            // Create a temporary zip file name
             var tempFileName = Path.GetTempFileName();
             var zipPath = tempFileName + ".zip";
 
-            // Create zip archive
             ZipFile.CreateFromDirectory(repoPath, zipPath);
 
-            // Return the file (will be deleted after sending)
             var fileStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read);
             return File(fileStream, "application/zip", $"{repoName}.zip");
         }
@@ -305,6 +285,23 @@ public class GitController : ControllerBase
         }
     }
 
+    private async Task<IActionResult> CheckRepositoryAccess(string repoName, string userEmail)
+    {
+        var repository = await _context.Repositories
+            .FirstOrDefaultAsync(r => r.Name == repoName);
+
+        if (repository == null)
+        {
+            return NotFound("Repository not found");
+        }
+
+        if (repository.IsPrivate && repository.AuthorEmail != userEmail)
+        {
+            return Unauthorized("You don't have permission to access this repository");
+        }
+
+        return null;
+    }
 }
 
 public class CommitRequest
@@ -322,10 +319,3 @@ public class RepositoryInitRequest
     public string UserEmail { get; set; }
     public bool IsPrivate { get; set; }
 }
-
-public class UserInfoDto
-    {
-        public string Id { get; set; }  // Changed to string to match GUID
-        public string Name { get; set; }
-        public string Email { get; set; }
-    }
