@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using FruityGitServer.Context;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
 using System.Collections.Generic;
@@ -76,9 +75,5 @@ async Task InitializeDataSources(WebApplication application)
 {
     using var scope = application.Services.CreateScope();
     var dataContext = scope.ServiceProvider.GetRequiredService<DataContext>();
-    if (!await dataContext.TryInitializeAsync())
-    {
-        Log.Fatal("Failed to initialize database");
-        throw new InvalidOperationException("Failed to initialize database");
-    }
+    await dataContext.InitializeAsync(); // No need for try-catch here now
 }

@@ -9,8 +9,6 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using System.IO.Compression;
-using FruityGitServer.Context;
-using Repository = FruityGitServer.Context.Repository;
 
 [ApiController]
 [Route("api/git")]
@@ -43,7 +41,10 @@ public class GitController : ControllerBase
     {
         try
         {
-            if (request == null || string.IsNullOrEmpty(request.UserEmail))
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userEmail = User.FindFirstValue(ClaimTypes.Email);
+            
+            if (string.IsNullOrEmpty(userId))
             {
                 return BadRequest("User information is required");
             }
@@ -71,7 +72,7 @@ public class GitController : ControllerBase
             {
                 Name = repoName,
                 DirectoryPath = repoPath,
-                AuthorEmail = request.UserEmail,
+                AuthorId = userId,  // Use Id instead of Email
                 IsPrivate = request.IsPrivate,
                 CreatedAt = DateTime.UtcNow
             };
@@ -84,7 +85,7 @@ public class GitController : ControllerBase
                 Success = true,
                 RepositoryName = repoName,
                 IsPrivate = request.IsPrivate,
-                Author = request.UserName
+                Author = User.Identity.Name // Get from authenticated user
             });
         }
         catch (Exception ex)
@@ -99,12 +100,11 @@ public class GitController : ControllerBase
     {
         try
         {
-            if (request == null || string.IsNullOrEmpty(request.UserEmail))
-            {
-                return BadRequest("User information is required");
-            }
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userEmail = User.FindFirstValue(ClaimTypes.Email);
+            var userName = User.Identity.Name;
 
-            var accessCheck = await CheckRepositoryAccess(repoName, request.UserEmail);
+            var accessCheck = await CheckRepositoryAccess(repoName, userId);
             if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
@@ -125,7 +125,7 @@ public class GitController : ControllerBase
 
                 string commitMessage = $"{request.Summary} _summEnd_ {request.Description}";
 
-                var signature = new Signature(request.UserName, request.UserEmail, DateTimeOffset.Now);
+                var signature = new Signature(userName, userEmail, DateTimeOffset.Now);
                 repo.Commit(commitMessage, signature, signature);
 
                 return Ok("Commit created.");
@@ -139,35 +139,26 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("repositories")]
-    public async Task<IActionResult> GetRepositories([FromBody] UserInfoDto userInfo)
+    public async Task<IActionResult> GetRepositories()
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
-            {
-                return BadRequest("User information is required");
-            }
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            _logger.LogInformation($"Getting repositories for user: {userInfo.Email}");
+            var dbRepos = await _context.Repositories
+                .Where(r => !r.IsPrivate || r.AuthorId == userId)
+                .Select(r => r.Name)
+                .ToListAsync();
 
             if (!Directory.Exists(_reposRootPath))
             {
                 return Ok(new List<string>());
             }
 
-            var dbRepos = await _context.Repositories
-                .Include(r => r.Author)
-                .ToListAsync();
-
-            var accessibleRepos = dbRepos
-                .Where(r => !r.IsPrivate || r.AuthorEmail == userInfo.Email)
-                .Select(r => r.Name)
-                .ToList();
-
             var validRepos = Directory.GetDirectories(_reposRootPath)
                 .Where(dir => LibGit2Sharp.Repository.IsValid(dir))
                 .Select(dir => Path.GetRelativePath(_reposRootPath, dir))
-                .Where(repoName => accessibleRepos.Contains(repoName))
+                .Where(repoName => dbRepos.Contains(repoName))
                 .ToList();
 
             return Ok(validRepos);
@@ -217,13 +208,10 @@ public class GitController : ControllerBase
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
-            {
-                return BadRequest("User information is required");
-            }
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var repository = await _context.Repositories
-                .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorEmail == userInfo.Email);
+                .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorId == userId);
                 
             if (repository == null)
             {
@@ -285,9 +273,10 @@ public class GitController : ControllerBase
         }
     }
 
-    private async Task<IActionResult> CheckRepositoryAccess(string repoName, string userEmail)
+    private async Task<IActionResult> CheckRepositoryAccess(string repoName, string userId)
     {
         var repository = await _context.Repositories
+            .Include(r => r.Author)
             .FirstOrDefaultAsync(r => r.Name == repoName);
 
         if (repository == null)
@@ -295,7 +284,7 @@ public class GitController : ControllerBase
             return NotFound("Repository not found");
         }
 
-        if (repository.IsPrivate && repository.AuthorEmail != userEmail)
+        if (repository.IsPrivate && repository.AuthorId != userId)
         {
             return Unauthorized("You don't have permission to access this repository");
         }
@@ -308,14 +297,12 @@ public class CommitRequest
 {
     public string Summary { get; set; }
     public string Description { get; set; }
-    public string UserName { get; set; }
-    public string UserEmail { get; set; }
     public IFormFile File { get; set; }
+    // Remove UserName/Email since we'll get from claims
 }
 
 public class RepositoryInitRequest
 {
-    public string UserName { get; set; }
-    public string UserEmail { get; set; }
     public bool IsPrivate { get; set; }
+    // Remove UserName/Email since we'll get from claims
 }
