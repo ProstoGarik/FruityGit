@@ -41,8 +41,7 @@ public class GitController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var userEmail = User.FindFirstValue(ClaimTypes.Email);
+            var userId = request.UserId;
             
             if (string.IsNullOrEmpty(userId))
             {
@@ -72,7 +71,7 @@ public class GitController : ControllerBase
             {
                 Name = repoName,
                 DirectoryPath = repoPath,
-                AuthorId = userId,  // Use Id instead of Email
+                AuthorId = userId,
                 IsPrivate = request.IsPrivate,
                 CreatedAt = DateTime.UtcNow
             };
@@ -85,7 +84,6 @@ public class GitController : ControllerBase
                 Success = true,
                 RepositoryName = repoName,
                 IsPrivate = request.IsPrivate,
-                Author = User.Identity.Name // Get from authenticated user
             });
         }
         catch (Exception ex)
@@ -304,5 +302,5 @@ public class CommitRequest
 public class RepositoryInitRequest
 {
     public bool IsPrivate { get; set; }
-    // Remove UserName/Email since we'll get from claims
+    public string UserId { get; set; }
 }
