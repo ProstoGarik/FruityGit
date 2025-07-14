@@ -3,12 +3,12 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import LoginWindow from './Login/Login';
 import CreateRepo from './Repo/CreateRepo';
-import { 
-    getAccessToken, 
-    getRefreshToken, 
-    setTokens, 
-    clearTokens, 
-    refreshAuthToken 
+import {
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  clearTokens,
+  refreshAuthToken
 } from './Login/AuthService';
 
 function App() {
@@ -27,9 +27,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [showCreateRepo, setShowCreateRepo] = useState(false);
 
-  const fetchWithAuth = async (url, options = {}) => {
+  const fetchWithAuth = async (url, options = {}, isRetry = false) => {
     const accessToken = getAccessToken();
-    const serverPath = 'http://192.168.1.54:8081'; // Or get from config
 
     // Add authorization header if token exists
     const headers = {
@@ -38,19 +37,21 @@ function App() {
       ...options.headers
     };
 
-    let response = await fetchWithAuth(url, { ...options, headers });
+    // First, make the actual fetch call
+    let response = await fetch(url, { ...options, headers });
 
-    // If unauthorized, try to refresh token and retry
-    if (response.status === 401) {
+    // If unauthorized and this isn't a retry, try to refresh token
+    if (response.status === 401 && !isRetry) {
       const newToken = await refreshAuthToken(serverPath);
       if (newToken) {
+        // Update headers with new token
         headers.Authorization = `Bearer ${newToken}`;
-        response = await fetchWithAuth(url, { ...options, headers });
+        // Retry the request with new token
+        return fetchWithAuth(url, { ...options, headers }, true); // Pass true to mark as retry
       } else {
         // Force logout if refresh fails
-        localStorage.removeItem('user');
-        window.location.reload();
-        return;
+        handleLogout();
+        throw new Error('Session expired. Please login again.');
       }
     }
 

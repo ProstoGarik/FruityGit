@@ -67,7 +67,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "fruitygitserver",
-          "Port": 80
+          "Port": 8000
         }
       ],
       "DownstreamPathTemplate": "/api/git/{repoName}/init",
@@ -84,7 +84,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "fruitygitserver",
-          "Port": 80
+          "Port": 8000
         }
       ],
       "DownstreamPathTemplate": "/api/git/{repoName}/commit",
@@ -101,7 +101,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "fruitygitserver",
-          "Port": 80
+          "Port": 8000
         }
       ],
       "DownstreamPathTemplate": "/api/git/repositories",
@@ -118,7 +118,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "fruitygitserver",
-          "Port": 80
+          "Port": 8000
         }
       ],
       "DownstreamPathTemplate": "/api/git/{repoName}/history",
@@ -135,7 +135,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "fruitygitserver",
-          "Port": 80
+          "Port": 8000
         }
       ],
       "DownstreamPathTemplate": "/api/git/{repoName}/delete",
@@ -152,7 +152,7 @@
       "DownstreamHostAndPorts": [
         {
           "Host": "fruitygitserver",
-          "Port": 80
+          "Port": 8000
         }
       ],
       "DownstreamPathTemplate": "/api/git/{repoName}/download",

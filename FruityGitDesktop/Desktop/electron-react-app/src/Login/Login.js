@@ -39,14 +39,14 @@ const LoginWindow = ({ onClose, serverPath }) => {
             }
 
             // Store tokens in localStorage
-            localStorage.setItem('accessToken', data.Token);
-            localStorage.setItem('refreshToken', data.RefreshToken);
+            localStorage.setItem('accessToken', data.token); // Note lowercase 'token'
+            localStorage.setItem('refreshToken', data.refreshToken); // Note lowercase 'refreshToken'
 
             onClose({
-                id: data.User.Id,
-                name: data.User.UserName || email,
+                id: data.user.id, // Changed from data.User.Id to data.user.id
+                name: data.user.userName || email, // Changed from data.User.UserName
                 email: email,
-                roles: data.UserRoles // If you need roles
+                roles: ['User'] // Assuming default role since it's not in the response
             });
         } catch (err) {
             console.error('Login error:', err);
@@ -76,7 +76,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
                 body: JSON.stringify({
                     Email: email,
                     Password: password,
-                    RoleName: 'User' // Default role, adjust as needed
+                    RoleName: 'User'
                 }),
             });
 
@@ -87,14 +87,14 @@ const LoginWindow = ({ onClose, serverPath }) => {
             }
 
             // Store tokens in localStorage
-            localStorage.setItem('accessToken', data.Token);
-            localStorage.setItem('refreshToken', data.RefreshToken);
+            localStorage.setItem('accessToken', data.token);
+            localStorage.setItem('refreshToken', data.refreshToken);
 
             onClose({
-                id: data.User.Id,
-                name: name,
+                id: data.user.id,
+                name: name, // Using the name from state since it's not in the response
                 email: email,
-                roles: [data.RoleName] // Assuming single role
+                roles: ['User'] // Default role
             });
         } catch (err) {
             console.error('Registration error:', err);
