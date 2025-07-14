@@ -60,9 +60,7 @@ function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          UserName: user.name,
-          UserEmail: user.email,
-          IsPrivate: isPrivate
+          IsPrivate: isPrivate  // Only send IsPrivate now
         }),
       });
 
