@@ -30,26 +30,27 @@ function App() {
   const fetchWithAuth = async (url, options = {}, isRetry = false) => {
     const accessToken = getAccessToken();
 
-    // Add authorization header if token exists
+    // Only set JSON content type if not FormData and not already specified
+    const isFormData = options.body instanceof FormData;
+    const defaultHeaders = {
+      ...(!isFormData && { 'Content-Type': 'application/json' }), // Only set for non-FormData
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
+    };
+
+    // Merge headers - options.headers takes precedence
     const headers = {
-      'Content-Type': 'application/json',
-      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...defaultHeaders,
       ...options.headers
     };
 
-    // First, make the actual fetch call
     let response = await fetch(url, { ...options, headers });
 
-    // If unauthorized and this isn't a retry, try to refresh token
     if (response.status === 401 && !isRetry) {
       const newToken = await refreshAuthToken(serverPath);
       if (newToken) {
-        // Update headers with new token
         headers.Authorization = `Bearer ${newToken}`;
-        // Retry the request with new token
-        return fetchWithAuth(url, { ...options, headers }, true); // Pass true to mark as retry
+        return fetchWithAuth(url, { ...options, headers }, true);
       } else {
-        // Force logout if refresh fails
         handleLogout();
         throw new Error('Session expired. Please login again.');
       }
@@ -189,18 +190,18 @@ function App() {
         throw new Error('Failed to read file');
       }
 
-      // Create file blob with proper filename
+      // Create file with proper filename
       const fileName = attachedFile.split(/[\\/]/).pop();
-      const fileBlob = new Blob([fileContent], {
-        type: 'application/octet-stream'
-      });
+      const file = new File([fileContent], fileName, { type: 'application/octet-stream' });
 
-      // Append all fields with proper structure
-      formData.append('File', fileBlob, fileName);
+      // Append the file
+      formData.append('File', file);
+
+      // Append other fields
       formData.append('Summary', summary);
-      formData.append('Description', description);
+      formData.append('Description', description || ''); // Ensure description is sent even if empty
 
-      // Append user info with nested structure
+      // Append user info as separate fields with proper naming
       formData.append('UserInfo.Id', user.id);
       formData.append('UserInfo.Name', user.name);
       formData.append('UserInfo.Email', user.email);
@@ -210,23 +211,27 @@ function App() {
         {
           method: 'POST',
           body: formData,
-          // Don't set Content-Type header - let browser set it with boundary
+          // Don't set Content-Type header - let the browser set it automatically
+          // with the proper boundary for multipart/form-data
         }
       );
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Commit failed: ${error}`);
+        const error = await response.json();
+        throw new Error(`Commit failed: ${error.message || JSON.stringify(error)}`);
       }
 
+      const result = await response.json();
       alert('File successfully committed!');
       setSummary('');
       setDescription('');
       setAttachedFile(null);
       handleShowRepo(selectedRepo);
+      return result;
     } catch (error) {
       console.error('Send error:', error);
       alert(`Error: ${error.message}`);
+      throw error;
     }
   };
 
@@ -277,13 +282,12 @@ function App() {
       const commitHistory = historyData.commits || [];
 
       // Process the commit history
-      const processedCommits = commitHistory.map((commit, index) => ({
-        id: index,
-        commitId: commit.Id || '',
-        author: commit.Author || '',
-        message: commit.Message || '',
-        date: commit.Date || new Date().toISOString(),
-        email: commit.Email || '',
+      const processedCommits = commitHistory.map((commit) => ({
+        commitId: commit.id || '',
+        author: commit.author || '',
+        message: commit.message || '',
+        date: commit.date || new Date().toISOString(),
+        email: commit.email || '',
         rawCommit: commit
       }));
 
