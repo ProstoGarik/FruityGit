@@ -95,7 +95,7 @@ public class GitController : ControllerBase
     {
         try
         {
-            _logger.LogInformation($"Commiting for user: {request.UserInfo.name}");
+            _logger.LogInformation($"Commiting for user: {request.UserInfo.Name}");
             _logger.LogInformation($"Commiting for repo: {repoName}");
             _logger.LogInformation($"Commiting with summary: {request.Summary}");
 
