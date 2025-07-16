@@ -229,10 +229,6 @@ namespace FruityGitServer.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("AuthorId1")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -255,8 +251,6 @@ namespace FruityGitServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AuthorId");
-
-                    b.HasIndex("AuthorId1");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -321,12 +315,6 @@ namespace FruityGitServer.Migrations
                         .WithMany("Repositories")
                         .HasForeignKey("AuthorId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ApplicationUser", "Author")
-                        .WithMany()
-                        .HasForeignKey("AuthorId1")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Author");
