@@ -97,12 +97,11 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("{repoName}/commit")]
-    public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequest request, [FromForm] UserInfoDto userInfo)
+    public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequestDto request)
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id) 
-                || string.IsNullOrEmpty(userInfo.Name) || string.IsNullOrEmpty(userInfo.Email))
+            if (request?.UserInfo == null || string.IsNullOrEmpty(request.UserInfo.Id))
             {
                 return BadRequest("Complete user information is required");
             }
@@ -112,7 +111,7 @@ public class GitController : ControllerBase
                 return BadRequest("Invalid repository name");
             }
 
-            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
+            var accessCheck = await CheckRepositoryAccess(repoName, request.UserInfo.Id);
             if (accessCheck != null) return accessCheck;
 
             if (request.File == null || request.File.Length == 0)
@@ -144,7 +143,7 @@ public class GitController : ControllerBase
                 Commands.Stage(repo, filePath);
 
                 var commitMessage = $"{request.Summary} _summEnd_ {request.Description}";
-                var signature = new Signature(userInfo.Name, userInfo.Email, DateTimeOffset.Now);
+                var signature = new Signature(request.UserInfo.Name, request.UserInfo.Email, DateTimeOffset.Now);
                 repo.Commit(commitMessage, signature, signature);
 
                 return Ok(new 
@@ -406,11 +405,12 @@ public class GitController : ControllerBase
     }
 }
 
-public class CommitRequest
+public class CommitRequestDto
 {
+    public IFormFile File { get; set; }
     public string Summary { get; set; }
     public string Description { get; set; }
-    public IFormFile File { get; set; }
+    public UserInfoDto UserInfo { get; set; }
 }
 
 public class RepositoryInitRequest

@@ -183,26 +183,27 @@ function App() {
       const formData = new FormData();
       const { ipcRenderer } = window.require('electron');
 
-      // Get file content
+      // Read file content
       const fileContent = await ipcRenderer.invoke('read-file', attachedFile);
       if (!fileContent) {
         throw new Error('Failed to read file');
       }
 
-      // Create Blob with appropriate type
+      // Create file blob with proper filename
+      const fileName = attachedFile.split(/[\\/]/).pop();
       const fileBlob = new Blob([fileContent], {
         type: 'application/octet-stream'
       });
 
-      // Use the correct field names expected by the controller
-      formData.append('File', fileBlob, attachedFile.split(/[\\/]/).pop());
+      // Append all fields with proper structure
+      formData.append('File', fileBlob, fileName);
       formData.append('Summary', summary);
       formData.append('Description', description);
 
-      // Add user info as form data (not JSON)
-      formData.append('Id', user.id);
-      formData.append('Name', user.name);
-      formData.append('Email', user.email);
+      // Append user info with nested structure
+      formData.append('UserInfo.Id', user.id);
+      formData.append('UserInfo.Name', user.name);
+      formData.append('UserInfo.Email', user.email);
 
       const response = await fetchWithAuth(
         `${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/commit`,
@@ -222,7 +223,7 @@ function App() {
       setSummary('');
       setDescription('');
       setAttachedFile(null);
-      handleShowRepo(selectedRepo); // Refresh history
+      handleShowRepo(selectedRepo);
     } catch (error) {
       console.error('Send error:', error);
       alert(`Error: ${error.message}`);
@@ -269,23 +270,22 @@ function App() {
         throw new Error('Error getting commit history');
       }
 
-      const commitHistory = await response.json();
+      const historyData = await response.json();
+      console.log('History response:', historyData); // Debug log
 
-      // Process the commit history according to your controller's format
-      const processedCommits = commitHistory.map((commit, index) => {
-        // Assuming the controller returns an array of strings with this format:
-        // "commitId _idEnd_ authorName _usEnd_ message _descEnd_ date"
-        const parts = commit.split(/ _idEnd_ | _usEnd_ | _descEnd_ /);
+      // Use lowercase 'commits' to match server response
+      const commitHistory = historyData.commits || [];
 
-        return {
-          id: index,
-          commitId: parts[0] || '',
-          author: parts[1] || '',
-          message: parts[2] || '',
-          date: parts[3] || new Date().toISOString(),
-          rawCommit: commit
-        };
-      });
+      // Process the commit history
+      const processedCommits = commitHistory.map((commit, index) => ({
+        id: index,
+        commitId: commit.Id || '',
+        author: commit.Author || '',
+        message: commit.Message || '',
+        date: commit.Date || new Date().toISOString(),
+        email: commit.Email || '',
+        rawCommit: commit
+      }));
 
       setCommits(processedCommits);
     } catch (error) {
@@ -320,8 +320,11 @@ function App() {
         throw new Error(errorData.message || 'Error getting repositories');
       }
 
-      const repos = await response.json();
-      setRepos(repos);
+      const data = await response.json();
+      console.log('Server response:', data); // Keep this for debugging
+
+      // Use the correct property name (lowercase 'repositories')
+      setRepos(data.repositories || []); // Changed from data.Repositories to data.repositories
     } catch (error) {
       console.error('Refresh repo error:', error);
       alert(error.message);
@@ -333,18 +336,15 @@ function App() {
   const handleCommitSelect = (commit) => {
     if (!commit) return;
 
-    // Split the original commit string (assuming we stored it in rawCommit)
-    const parts = commit.rawCommit?.split(/ _idEnd_ | _usEnd_ | _summEnd_ | _descEnd_ /) || [];
+    setSelectedCommit({
+      ...commit,
+      formattedDetails: `Commit: ${commit.commitId}
+Author: ${commit.author} <${commit.email}>
+Date: ${new Date(commit.date).toLocaleString()}
 
-    if (parts.length >= 5) {
-      const formattedDetails = `Commit: ${parts[0]}\nAuthor: ${parts[1]}\nDate: ${parts[4]}\n\nMessage:\n${parts[2]}\n\nDescription:\n${parts[3]}`;
-      setSelectedCommit({
-        ...commit,
-        formattedDetails
-      });
-    } else {
-      setSelectedCommit(commit);
-    }
+Message:
+${commit.message}`
+    });
   };
 
 
@@ -601,19 +601,22 @@ function App() {
 
             <div className="repo-list-container">
               <ul className="repo-list">
-                {repos.map((repo, index) => (
-                  <li
-                    key={index}
-                    className={repo === selectedRepo ? 'selected-repo' : ''}
-                    onClick={() => {
-                      setSelectedRepo(repo);
-                      handleShowRepo(repo);
-                    }}
-                  >
-                    {repo}
-                  </li>
-                ))}
-                {repos.length === 0 && <li>Нет репозиториев</li>}
+                {repos && repos.length > 0 ? (
+                  repos.map((repo, index) => (
+                    <li
+                      key={index}
+                      className={repo === selectedRepo ? 'selected-repo' : ''}
+                      onClick={() => {
+                        setSelectedRepo(repo);
+                        handleShowRepo(repo);
+                      }}
+                    >
+                      {repo}
+                    </li>
+                  ))
+                ) : (
+                  <li>No repositories found</li>
+                )}
               </ul>
             </div>
 
@@ -645,16 +648,22 @@ function App() {
           <div className="section history-section">
             <h2 className="section-title">История</h2>
             <ul className="commit-list">
-              {commits.map(commit => (
-                <li
-                  key={commit.id}
-                  className="commit-item"
-                  onClick={() => handleCommitSelect(commit)}
-                >
-                  <div className="commit-message">{commit.message}</div>
-                  <div className="commit-date">{commit.date}</div>
-                </li>
-              ))}
+              {commits && commits.length > 0 ? (
+                commits.map(commit => (
+                  <li
+                    key={commit.id}
+                    className="commit-item"
+                    onClick={() => handleCommitSelect(commit)}
+                  >
+                    <div className="commit-message">{commit.message}</div>
+                    <div className="commit-date">
+                      {new Date(commit.date).toLocaleString()}
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <li>No commits found</li>
+              )}
             </ul>
           </div>
 
