@@ -29,12 +29,6 @@ public class GitController : ControllerBase
         Directory.CreateDirectory(_reposRootPath);
     }
 
-    public class UserInfoDto
-    {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Email { get; set; }
-    }
 
     [HttpPost("{repoName}/init")]
     public async Task<IActionResult> InitializeRepository(string repoName, [FromBody] RepositoryInitRequest request)
@@ -412,6 +406,13 @@ public class CommitRequestDto
     public string Description { get; set; }
     public UserInfoDto UserInfo { get; set; }
 }
+
+public class UserInfoDto
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Email { get; set; }
+    }
 
 public class RepositoryInitRequest
 {
