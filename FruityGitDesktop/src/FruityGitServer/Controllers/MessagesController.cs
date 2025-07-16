@@ -94,15 +94,17 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("{repoName}/commit")]
-    public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequest request)
+    public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequest request, [FromForm] UserInfoDto userInfo)
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var userEmail = User.FindFirstValue(ClaimTypes.Email);
-            var userName = User.Identity.Name;
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id) 
+                || string.IsNullOrEmpty(userInfo.Name) || string.IsNullOrEmpty(userInfo.Email))
+            {
+                return BadRequest("User information is required");
+            }
 
-            var accessCheck = await CheckRepositoryAccess(repoName, userId);
+            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
             if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
@@ -123,7 +125,7 @@ public class GitController : ControllerBase
 
                 string commitMessage = $"{request.Summary} _summEnd_ {request.Description}";
 
-                var signature = new Signature(userName, userEmail, DateTimeOffset.Now);
+                var signature = new Signature(userInfo.Name, userInfo.Email, DateTimeOffset.Now);
                 repo.Commit(commitMessage, signature, signature);
 
                 return Ok("Commit created.");
@@ -137,16 +139,19 @@ public class GitController : ControllerBase
     }
 
     [HttpPost("repositories")]
-    public async Task<IActionResult> GetRepositories()
+    public async Task<IActionResult> GetRepositories([FromBody] UserInfoDto userInfo)
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            {
+                return BadRequest("User information is required");
+            }
 
-            _logger.LogInformation($"Searching repositoriesfor UserId: {userId}");
+            _logger.LogInformation($"Searching repositories for UserId: {userInfo.Id}");
 
             var dbRepos = await _context.Repositories
-                .Where(r => !r.IsPrivate || r.AuthorId == userId)
+                .Where(r => !r.IsPrivate || r.AuthorId == userInfo.Id)
                 .Select(r => r.Name)
                 .ToListAsync();
 
@@ -175,12 +180,12 @@ public class GitController : ControllerBase
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
             {
                 return BadRequest("User information is required");
             }
 
-            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Email);
+            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
             if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
@@ -208,10 +213,13 @@ public class GitController : ControllerBase
     {
         try
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            {
+                return BadRequest("User information is required");
+            }
 
             var repository = await _context.Repositories
-                .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorId == userId);
+                .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorId == userInfo.Id);
                 
             if (repository == null)
             {
@@ -243,12 +251,12 @@ public class GitController : ControllerBase
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Email))
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
             {
                 return BadRequest("User information is required");
             }
 
-            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Email);
+            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
             if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
@@ -297,7 +305,6 @@ public class CommitRequest
     public string Summary { get; set; }
     public string Description { get; set; }
     public IFormFile File { get; set; }
-    // Remove UserName/Email since we'll get from claims
 }
 
 public class RepositoryInitRequest
