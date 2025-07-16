@@ -143,6 +143,8 @@ public class GitController : ControllerBase
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
+            _logger.LogInformation($"Searching repositoriesfor UserId: {userId}");
+
             var dbRepos = await _context.Repositories
                 .Where(r => !r.IsPrivate || r.AuthorId == userId)
                 .Select(r => r.Name)
