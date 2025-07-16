@@ -95,6 +95,10 @@ public class GitController : ControllerBase
     {
         try
         {
+            _logger.LogInformation($"Commiting for user: {request.UserInfo.name}");
+            _logger.LogInformation($"Commiting for repo: {repoName}");
+            _logger.LogInformation($"Commiting with summary: {request.Summary}");
+
             if (request?.UserInfo == null || string.IsNullOrEmpty(request.UserInfo.Id))
             {
                 return BadRequest("Complete user information is required");
