@@ -274,7 +274,6 @@ public class GitController : ControllerBase
     private async Task<IActionResult> CheckRepositoryAccess(string repoName, string userId)
     {
         var repository = await _context.Repositories
-            .Include(r => r.Author)
             .FirstOrDefaultAsync(r => r.Name == repoName);
 
         if (repository == null)
