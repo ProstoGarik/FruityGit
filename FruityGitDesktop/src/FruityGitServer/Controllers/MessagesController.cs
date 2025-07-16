@@ -2,13 +2,12 @@
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 using LibGit2Sharp;
 using System;
 using System.IO;
 using System.Threading.Tasks;
 using System.IO.Compression;
+using System.Linq;
 
 [ApiController]
 [Route("api/git")]
@@ -17,6 +16,7 @@ public class GitController : ControllerBase
     private readonly string _reposRootPath;
     private readonly ILogger<GitController> _logger;
     private readonly DataContext _context;
+    private const int MaxFileSize = 100 * 1024 * 1024; // 100MB
 
     public GitController(
         IWebHostEnvironment env, 
@@ -41,37 +41,39 @@ public class GitController : ControllerBase
     {
         try
         {
-            var userId = request.UserId;
-            
-            if (string.IsNullOrEmpty(userId))
+            if (request == null || string.IsNullOrEmpty(request.UserId))
             {
                 return BadRequest("User information is required");
+            }
+
+            if (!IsValidRepoName(repoName))
+            {
+                return BadRequest("Invalid repository name");
             }
 
             _logger.LogInformation($"Initializing repository: {repoName}");
             
             var repoPath = Path.Combine(_reposRootPath, repoName);
-            Directory.CreateDirectory(_reposRootPath);
 
-            if (LibGit2Sharp.Repository.IsValid(repoPath) || 
+            if (Directory.Exists(repoPath) && LibGit2Sharp.Repository.IsValid(repoPath) || 
                 await _context.Repositories.AnyAsync(r => r.Name == repoName))
             {
                 return BadRequest("Repository already exists");
             }
 
-            var gitPath = Path.Combine(repoPath, ".git");
-            if (Directory.Exists(gitPath))
+            if (Directory.Exists(repoPath))
             {
-                Directory.Delete(gitPath, true);
+                Directory.Delete(repoPath, true);
             }
 
+            Directory.CreateDirectory(repoPath);
             LibGit2Sharp.Repository.Init(repoPath);
 
             var repository = new Repository
             {
                 Name = repoName,
                 DirectoryPath = repoPath,
-                AuthorId = userId,
+                AuthorId = request.UserId,
                 IsPrivate = request.IsPrivate,
                 CreatedAt = DateTime.UtcNow
             };
@@ -84,6 +86,7 @@ public class GitController : ControllerBase
                 Success = true,
                 RepositoryName = repoName,
                 IsPrivate = request.IsPrivate,
+                Path = repoPath
             });
         }
         catch (Exception ex)
@@ -101,21 +104,38 @@ public class GitController : ControllerBase
             if (userInfo == null || string.IsNullOrEmpty(userInfo.Id) 
                 || string.IsNullOrEmpty(userInfo.Name) || string.IsNullOrEmpty(userInfo.Email))
             {
-                return BadRequest("User information is required");
+                return BadRequest("Complete user information is required");
+            }
+
+            if (!IsValidRepoName(repoName))
+            {
+                return BadRequest("Invalid repository name");
             }
 
             var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
             if (accessCheck != null) return accessCheck;
 
+            if (request.File == null || request.File.Length == 0)
+            {
+                return BadRequest("No file was uploaded");
+            }
+
+            if (request.File.Length > MaxFileSize)
+            {
+                return BadRequest($"File size exceeds maximum limit of {MaxFileSize} bytes");
+            }
+
+            var fileName = Path.GetFileName(request.File.FileName);
+            if (string.IsNullOrEmpty(fileName))
+            {
+                return BadRequest("Invalid file name");
+            }
+
             var repoPath = Path.Combine(_reposRootPath, repoName);
+            var filePath = Path.Combine(repoPath, fileName);
+
             using (var repo = new LibGit2Sharp.Repository(repoPath))
             {
-                if (request.File == null || request.File.Length == 0)
-                {
-                    return BadRequest("File was not uploaded.");
-                }
-
-                string filePath = Path.Combine(repoPath, request.File.FileName);
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await request.File.CopyToAsync(stream);
@@ -123,18 +143,26 @@ public class GitController : ControllerBase
 
                 Commands.Stage(repo, filePath);
 
-                string commitMessage = $"{request.Summary} _summEnd_ {request.Description}";
-
+                var commitMessage = $"{request.Summary} _summEnd_ {request.Description}";
                 var signature = new Signature(userInfo.Name, userInfo.Email, DateTimeOffset.Now);
                 repo.Commit(commitMessage, signature, signature);
 
-                return Ok("Commit created.");
+                return Ok(new 
+                {
+                    Success = true,
+                    FileName = fileName,
+                    CommitMessage = commitMessage
+                });
             }
         }
         catch (Exception ex)
         {
             _logger.LogError($"Error during commit: {ex}");
-            return StatusCode(500, $"An error occurred: {ex.Message}");
+            return StatusCode(500, new 
+            {
+                Error = "Commit failed",
+                Message = ex.Message
+            });
         }
     }
 
@@ -166,12 +194,20 @@ public class GitController : ControllerBase
                 .Where(repoName => dbRepos.Contains(repoName))
                 .ToList();
 
-            return Ok(validRepos);
+            return Ok(new
+            {
+                Count = validRepos.Count,
+                Repositories = validRepos
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError($"Error getting repositories: {ex}");
-            return StatusCode(500, "Error getting repositories");
+            return StatusCode(500, new
+            {
+                Error = "Failed to retrieve repositories",
+                Message = ex.Message
+            });
         }
     }
 
@@ -185,26 +221,46 @@ public class GitController : ControllerBase
                 return BadRequest("User information is required");
             }
 
+            if (!IsValidRepoName(repoName))
+            {
+                return BadRequest("Invalid repository name");
+            }
+
             var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
             if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
-            var commitHistory = new List<string>();
+            var commitHistory = new List<object>();
 
             using (var repo = new LibGit2Sharp.Repository(repoPath))
             {
                 foreach (var commit in repo.Commits)
                 {
-                    commitHistory.Add($"{commit.Id} _idEnd_ {commit.Author.Name} _usEnd_ {commit.Message} _descEnd_ {commit.Author.When}");
+                    commitHistory.Add(new
+                    {
+                        Id = commit.Id.ToString(),
+                        Author = commit.Author.Name,
+                        Email = commit.Author.Email,
+                        Message = commit.Message,
+                        Date = commit.Author.When
+                    });
                 }
             }
 
-            return Ok(commitHistory);
+            return Ok(new
+            {
+                Count = commitHistory.Count,
+                Commits = commitHistory
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError($"Error getting history: {ex}");
-            return StatusCode(500, $"An error occurred: {ex.Message}");
+            return StatusCode(500, new
+            {
+                Error = "Failed to retrieve commit history",
+                Message = ex.Message
+            });
         }
     }
 
@@ -218,12 +274,21 @@ public class GitController : ControllerBase
                 return BadRequest("User information is required");
             }
 
+            if (!IsValidRepoName(repoName))
+            {
+                return BadRequest("Invalid repository name");
+            }
+
             var repository = await _context.Repositories
                 .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorId == userInfo.Id);
                 
             if (repository == null)
             {
-                return NotFound("Repository not found or you don't have permission to delete it");
+                return NotFound(new
+                {
+                    Error = "Repository not found",
+                    Message = "Either the repository doesn't exist or you don't have permission to delete it"
+                });
             }
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
@@ -237,23 +302,37 @@ public class GitController : ControllerBase
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"Successfully deleted repository: {repoName}");
-            return Ok($"Repository {repoName} deleted successfully");
+            return Ok(new
+            {
+                Success = true,
+                Message = $"Repository {repoName} deleted successfully"
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError($"Error deleting repository {repoName}: {ex}");
-            return StatusCode(500, $"Unexpected error: {ex.Message}");
+            return StatusCode(500, new
+            {
+                Error = "Delete failed",
+                Message = ex.Message
+            });
         }
     }
 
     [HttpPost("{repoName}/download")]
     public async Task<IActionResult> DownloadRepository(string repoName, [FromBody] UserInfoDto userInfo)
     {
+        string zipPath = null;
         try
         {
             if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
             {
                 return BadRequest("User information is required");
+            }
+
+            if (!IsValidRepoName(repoName))
+            {
+                return BadRequest("Invalid repository name");
             }
 
             var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
@@ -263,12 +342,14 @@ public class GitController : ControllerBase
             
             if (!LibGit2Sharp.Repository.IsValid(repoPath))
             {
-                return NotFound("Repository not found");
+                return NotFound(new
+                {
+                    Error = "Repository not found",
+                    Message = "The requested repository does not exist"
+                });
             }
 
-            var tempFileName = Path.GetTempFileName();
-            var zipPath = tempFileName + ".zip";
-
+            zipPath = Path.GetTempFileName() + ".zip";
             ZipFile.CreateFromDirectory(repoPath, zipPath);
 
             var fileStream = new FileStream(zipPath, FileMode.Open, FileAccess.Read);
@@ -277,7 +358,18 @@ public class GitController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError($"Error downloading repository: {ex}");
-            return StatusCode(500, $"Error downloading repository: {ex.Message}");
+            return StatusCode(500, new
+            {
+                Error = "Download failed",
+                Message = ex.Message
+            });
+        }
+        finally
+        {
+            if (zipPath != null && System.IO.File.Exists(zipPath))
+            {
+                System.IO.File.Delete(zipPath);
+            }
         }
     }
 
@@ -288,15 +380,29 @@ public class GitController : ControllerBase
 
         if (repository == null)
         {
-            return NotFound("Repository not found");
+            return NotFound(new
+            {
+                Error = "Repository not found",
+                Message = "The requested repository does not exist"
+            });
         }
 
         if (repository.IsPrivate && repository.AuthorId != userId)
         {
-            return Unauthorized("You don't have permission to access this repository");
+            return Unauthorized(new
+            {
+                Error = "Access denied",
+                Message = "You don't have permission to access this private repository"
+            });
         }
 
         return null;
+    }
+
+    private bool IsValidRepoName(string repoName)
+    {
+        if (string.IsNullOrWhiteSpace(repoName)) return false;
+        return repoName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
     }
 }
 

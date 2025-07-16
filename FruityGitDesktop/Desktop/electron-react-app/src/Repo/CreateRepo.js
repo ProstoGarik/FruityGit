@@ -36,8 +36,8 @@ function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
     e.preventDefault();
     setError('');
 
-    if (!user) {
-      setError('You must be logged in to create repositories');
+    if (!user || !user.id) {
+      setError('User information is incomplete');
       return;
     }
 
@@ -46,39 +46,45 @@ function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
       return;
     }
 
-    if (!/^[a-zA-Z0-9_-]+$/.test(repoName)) {
-      setError('Only letters, numbers, hyphens and underscores allowed');
+    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(repoName)) {
+      setError('Repository name must be 1-100 characters (letters, numbers, hyphens, underscores)');
       return;
     }
 
     setIsCreating(true);
 
     try {
-      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(repoName)}/init`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          IsPrivate: isPrivate,
-          UserId: user.id
-        }),
-      });
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/${encodeURIComponent(repoName)}/init`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            IsPrivate: isPrivate,
+            UserId: user.id
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create repository');
+        const errorMessage = errorData.message ||
+          (response.status === 400 ? 'Repository already exists' : 'Failed to create repository');
+        throw new Error(errorMessage);
       }
 
+      const result = await response.json();
       setRepoName('');
       setIsPrivate(false);
       onClose();
       onCreate({
-        name: repoName,
-        isPrivate,
+        name: result.RepositoryName,
+        isPrivate: result.IsPrivate,
+        path: result.Path,
         author: user.name
       });
-      alert(`Repository "${repoName}" created successfully!`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -118,7 +124,7 @@ function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
                 maxLength={100}
               />
               <div className="hint">
-                Only letters, numbers, hyphens and underscores allowed
+                1-100 characters (letters, numbers, hyphens, underscores)
               </div>
             </div>
 

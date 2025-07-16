@@ -161,21 +161,20 @@ function App() {
   const handleSend = async () => {
     try {
       if (!selectedRepo) {
-        alert('Пожалуйста, сначала выберите репозиторий');
+        alert('Please select a repository first');
         return;
       }
 
       if (!attachedFile) {
-        alert('Пожалуйста, прикрепите файл');
+        alert('Please attach a file');
         return;
       }
 
       if (!summary) {
-        alert('Пожалуйста, введите краткое описание');
+        alert('Please enter a summary');
         return;
       }
 
-      // Use logged-in user
       if (!user) {
         alert('Please login first');
         return;
@@ -187,43 +186,46 @@ function App() {
       // Get file content
       const fileContent = await ipcRenderer.invoke('read-file', attachedFile);
       if (!fileContent) {
-        throw new Error('Не удалось прочитать файл');
+        throw new Error('Failed to read file');
       }
-
-      // Determine file name
-      const fileName = processWithPython
-        ? attachedFile.split(/[\\/]/).pop().replace('.flp', '.zip')
-        : attachedFile.split(/[\\/]/).pop();
 
       // Create Blob with appropriate type
       const fileBlob = new Blob([fileContent], {
-        type: processWithPython ? 'application/zip' : 'application/octet-stream'
+        type: 'application/octet-stream'
       });
 
-      formData.append('file', fileBlob, fileName);
-      formData.append('summary', summary);
-      formData.append('description', description);
-      formData.append('UserName', user.name);  // Changed to capital case
-      formData.append('UserEmail', user.email);  // Changed to capital case
+      // Use the correct field names expected by the controller
+      formData.append('File', fileBlob, attachedFile.split(/[\\/]/).pop());
+      formData.append('Summary', summary);
+      formData.append('Description', description);
 
-      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/commit`, {
-        method: 'POST',
-        body: formData,
-      });
+      // Add user info as form data (not JSON)
+      formData.append('Id', user.id);
+      formData.append('Name', user.name);
+      formData.append('Email', user.email);
 
-      if (response.ok) {
-        alert('Файл успешно закоммичен!');
-        setSummary('');
-        setDescription('');
-        setAttachedFile(null);
-        handleShowRepo(selectedRepo);  // Refresh history
-      } else {
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/commit`,
+        {
+          method: 'POST',
+          body: formData,
+          // Don't set Content-Type header - let browser set it with boundary
+        }
+      );
+
+      if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Ошибка при коммите файла: ${error}`);
+        throw new Error(`Commit failed: ${error}`);
       }
+
+      alert('File successfully committed!');
+      setSummary('');
+      setDescription('');
+      setAttachedFile(null);
+      handleShowRepo(selectedRepo); // Refresh history
     } catch (error) {
       console.error('Send error:', error);
-      alert(`Ошибка: ${error.message}`);
+      alert(`Error: ${error.message}`);
     }
   };
 
@@ -243,17 +245,20 @@ function App() {
     if (!repo || !user) return;
 
     try {
-      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(repo)}/history`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          Id: user.id,  // Changed to capital case
-          Name: user.name,  // Changed to capital case
-          Email: user.email  // Changed to capital case
-        }),
-      });
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/${encodeURIComponent(repo)}/history`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            Id: user.id,
+            Name: user.name,
+            Email: user.email
+          }),
+        }
+      );
 
       if (response.status === 401) {
         alert("You don't have access to this private repository");
@@ -266,23 +271,23 @@ function App() {
 
       const commitHistory = await response.json();
 
-      if (Array.isArray(commitHistory)) {
-        const processedCommits = commitHistory.map((commit, index) => {
-          const parts = commit.split(/ _idEnd_ | _usEnd_ | _summEnd_ | _descEnd_ /);
-          return parts.length >= 4
-            ? {
-              id: index,
-              message: `${parts[1]} - ${parts[2]}`,
-              rawCommit: commit,
-              date: parts.length >= 5 ? parts[4] : new Date().toISOString().split('T')[0]
-            }
-            : null;
-        }).filter(Boolean);
+      // Process the commit history according to your controller's format
+      const processedCommits = commitHistory.map((commit, index) => {
+        // Assuming the controller returns an array of strings with this format:
+        // "commitId _idEnd_ authorName _usEnd_ message _descEnd_ date"
+        const parts = commit.split(/ _idEnd_ | _usEnd_ | _descEnd_ /);
 
-        setCommits(processedCommits);
-      } else {
-        throw new Error('Некорректный формат данных коммитов');
-      }
+        return {
+          id: index,
+          commitId: parts[0] || '',
+          author: parts[1] || '',
+          message: parts[2] || '',
+          date: parts[3] || new Date().toISOString(),
+          rawCommit: commit
+        };
+      });
+
+      setCommits(processedCommits);
     } catch (error) {
       console.error('Show repo error:', error);
       alert(error.message);
@@ -295,21 +300,24 @@ function App() {
 
     setIsLoadingRepos(true);
     try {
-      const response = await fetchWithAuth(`${serverPath}/api/git/repositories`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          Id: user.id,  // Changed to capital case
-          Name: user.name,  // Changed to capital case
-          Email: user.email  // Changed to capital case
-        }),
-      });
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/repositories`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            Id: user.id,
+            Name: user.name,
+            Email: user.email
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData || 'Error getting repositories');
+        throw new Error(errorData.message || 'Error getting repositories');
       }
 
       const repos = await response.json();
@@ -342,7 +350,7 @@ function App() {
 
   const handleDownloadRepo = async () => {
     if (!selectedRepo || !user) {
-      alert('Пожалуйста, выберите репозиторий и убедитесь что вы авторизованы');
+      alert('Please select a repository and ensure you are logged in');
       return;
     }
 
@@ -350,7 +358,6 @@ function App() {
       const { ipcRenderer } = window.require('electron');
       const fs = window.require('fs');
 
-      // Ask user where to save
       const savePath = await ipcRenderer.invoke('open-save-dialog', {
         defaultPath: `${selectedRepo}.zip`,
         filters: [{ name: 'ZIP Archives', extensions: ['zip'] }]
@@ -358,35 +365,34 @@ function App() {
 
       if (!savePath) return;
 
-      // Download the repository with user credentials
-      const response = await fetchWithAuth(`${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          Id: user.id,  // Changed to capital case
-          Name: user.name,  // Changed to capital case
-          Email: user.email  // Changed to capital case
-        }),
-      });
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/download`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            Id: user.id,
+            Name: user.name,
+            Email: user.email
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Ошибка при скачивании репозитория');
+        throw new Error('Error downloading repository');
       }
 
-      // Convert response to blob
       const blob = await response.blob();
       const arrayBuffer = await blob.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Save file
       fs.writeFileSync(savePath, buffer);
-
-      alert(`Репозиторий успешно скачан: ${savePath}`);
+      alert(`Repository successfully downloaded: ${savePath}`);
     } catch (error) {
       console.error('Download error:', error);
-      alert(`Ошибка скачивания: ${error.message}`);
+      alert(`Download error: ${error.message}`);
     }
   };
 
@@ -677,7 +683,7 @@ function App() {
 
         {showCreateRepo && (
           <CreateRepo
-            serverPath={serverPath}  // Pass serverPath as prop
+            serverPath={serverPath}
             user={user}
             onClose={() => setShowCreateRepo(false)}
             onCreate={handleCreateRepo}
