@@ -43,6 +43,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseMiddleware<RequestResponseLoggingMiddleware>();
+app.AddCors();
 
 await app.UseOcelot();
 
