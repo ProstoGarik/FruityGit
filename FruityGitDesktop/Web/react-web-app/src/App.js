@@ -25,10 +25,8 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          Email: email,
-          Password: password
-        }),
+        body: JSON.stringify({ Email: email, Password: password }),
+        mode: 'cors'  // Explicitly enable CORS
       });
 
       const data = await response.json();
