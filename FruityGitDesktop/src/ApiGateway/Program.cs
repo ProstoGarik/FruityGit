@@ -21,8 +21,7 @@ builder.Services.AddCors(options =>
     {
         builder.AllowAnyOrigin()
                .AllowAnyMethod()
-               .AllowAnyHeader()
-               .AllowCredentials();
+               .AllowAnyHeader();
     });
 });
 
@@ -36,7 +35,6 @@ builder.Services.AddCustomJwtAuthentication(builder.Configuration);
 
 var app = builder.Build();
 
-app.UseCors("AllowAll");
 
 app.UseMetricServer(url: "/metrics");
 app.UseHttpMetrics();
@@ -45,22 +43,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseMiddleware<RequestResponseLoggingMiddleware>();
-
-app.Use(async (context, next) =>
-{
-    if (context.Request.Method == "OPTIONS")
-    {
-        context.Response.StatusCode = 200;
-        context.Response.Headers.Add("Access-Control-Allow-Origin", context.Request.Headers["Origin"]);
-        context.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        context.Response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        await context.Response.CompleteAsync();
-    }
-    else
-    {
-        await next();
-    }
-});
 
 await app.UseOcelot();
 
