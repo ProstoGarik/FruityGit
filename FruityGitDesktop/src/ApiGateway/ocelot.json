@@ -2,7 +2,7 @@
   "Routes": [
     {
       "UpstreamPathTemplate": "/api/auth/login",
-      "UpstreamHttpMethod": ["Post"],
+      "UpstreamHttpMethod": ["Post", "Options"],
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -14,7 +14,7 @@
     },
     {
       "UpstreamPathTemplate": "/api/auth/register",
-      "UpstreamHttpMethod": ["Post"],
+      "UpstreamHttpMethod": ["Post", "Options"],
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
