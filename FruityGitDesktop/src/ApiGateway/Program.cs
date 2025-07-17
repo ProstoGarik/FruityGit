@@ -22,8 +22,26 @@ builder.Configuration.SetBasePath(builder.Environment.ContentRootPath)
 builder.Services.AddOcelot(builder.Configuration);
 builder.Services.AddCustomJwtAuthentication(builder.Configuration);
 
+builder.Services.AddCors(options => 
+{
+    options.AddDefaultPolicy(policy => 
+    {
+        policy.WithOrigins("http://localhost:3000") // React app's origin
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
+
 var app = builder.Build();
 
+app.UseCors(policy => policy
+    .WithOrigins("http://localhost:3000") // Replace with your React app's URL
+    .AllowAnyMethod()
+    .AllowAnyHeader()
+    .AllowCredentials()
+);
 
 app.UseMetricServer(url: "/metrics");
 app.UseHttpMetrics();
