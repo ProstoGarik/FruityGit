@@ -14,6 +14,17 @@ Log.Logger = new LoggerConfiguration()
     )
     .CreateLogger();
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
 builder.Services.AddHealthChecks();
 builder.Configuration.SetBasePath(builder.Environment.ContentRootPath)
     .AddJsonFile("ocelot.json", optional: false, reloadOnChange: true)

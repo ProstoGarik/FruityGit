@@ -1,0 +1,186 @@
+/* Dark Theme Colors */
+:root {
+  --bg-color: #0d1117;
+  --text-color: #c9d1d9;
+  --header-bg: #161b22;
+  --border-color: #30363d;
+  --green-primary: #238636;
+  --green-hover: #2ea043;
+  --input-bg: #0d1117;
+  --input-border: #21262d;
+  --input-focus-border: #388bfd;
+}
+
+.dark-theme {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  min-height: 100vh;
+}
+
+/* Navigation Bar */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 16px;
+}
+
+.nav-links a {
+  color: var(--text-color);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.nav-links a:hover {
+  color: white;
+}
+
+.navbar-right {
+  display: flex;
+  gap: 12px;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-login {
+  background-color: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.btn-login:hover {
+  background-color: rgba(240, 246, 252, 0.1);
+  border-color: #8b949e;
+}
+
+.btn-register {
+  background-color: var(--green-primary);
+  color: white;
+  border: 1px solid rgba(240, 246, 252, 0.1);
+}
+
+.btn-register:hover {
+  background-color: var(--green-hover);
+  border-color: #3fb950;
+}
+
+/* Sign In Page */
+.signin-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 68px); /* Subtract navbar height */
+  padding: 20px;
+}
+
+.signin-box {
+  width: 100%;
+  max-width: 340px;
+  padding: 24px;
+  background-color: var(--header-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.signin-box h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 24px;
+}
+
+.signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.password-label-container {
+  display: flex;
+  justify-content: space-between;
+}
+
+.forgot-password {
+  color: #58a6ff;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+.forgot-password:hover {
+  text-decoration: underline;
+}
+
+.form-input {
+  padding: 8px 12px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 3px rgba(56, 139, 253, 0.15);
+}
+
+.btn-signin {
+  width: 100%;
+  background-color: var(--green-primary);
+  color: white;
+  border: none;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.btn-signin:hover {
+  background-color: var(--green-hover);
+}
+
+/* Error Message */
+.error-message {
+  color: #f85149;
+  background-color: rgba(248, 81, 73, 0.1);
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* Disabled button state */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
