@@ -36,13 +36,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-app.UseCors(policy => policy
-    .WithOrigins("http://localhost:3000") // Replace with your React app's URL
-    .AllowAnyMethod()
-    .AllowAnyHeader()
-    .AllowCredentials()
-);
-
 app.UseMetricServer(url: "/metrics");
 app.UseHttpMetrics();
 
