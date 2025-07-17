@@ -278,18 +278,25 @@ function App() {
       const historyData = await response.json();
       console.log('History response:', historyData); // Debug log
 
-      // Use lowercase 'commits' to match server response
       const commitHistory = historyData.commits || [];
 
-      // Process the commit history
-      const processedCommits = commitHistory.map((commit) => ({
-        commitId: commit.id || '',
-        author: commit.author || '',
-        message: commit.message || '',
-        date: commit.date || new Date().toISOString(),
-        email: commit.email || '',
-        rawCommit: commit
-      }));
+      // Process the commit history - extract summary from message
+      const processedCommits = commitHistory.map((commit) => {
+        const message = commit.message || '';
+        const summary = message.includes('_summEnd_')
+          ? message.split('_summEnd_')[0].trim()
+          : message.trim();
+
+        return {
+          id: commit.id || '',  // Changed from commitId to id to match server response
+          author: commit.author || '',
+          message: message,     // Keep full message for details view
+          summary: summary,      // Add summary for list view
+          date: commit.date || new Date().toISOString(),
+          email: commit.email || '',
+          rawCommit: commit
+        };
+      });
 
       setCommits(processedCommits);
     } catch (error) {
@@ -340,14 +347,21 @@ function App() {
   const handleCommitSelect = (commit) => {
     if (!commit) return;
 
+    const formatCommitMessage = (message) => {
+      if (message.includes('_summEnd_')) {
+        const [summary, description] = message.split('_summEnd_');
+        return `Summary: ${summary.trim()}\n\nDescription: ${description.trim()}`;
+      }
+      return `Summary: ${message.trim()}`;
+    };
+
     setSelectedCommit({
       ...commit,
-      formattedDetails: `Commit: ${commit.commitId}
+      formattedDetails: `Commit: ${commit.id}
 Author: ${commit.author} <${commit.email}>
 Date: ${new Date(commit.date).toLocaleString()}
 
-Message:
-${commit.message}`
+${formatCommitMessage(commit.message)}`
     });
   };
 
@@ -659,7 +673,7 @@ ${commit.message}`
                     className="commit-item"
                     onClick={() => handleCommitSelect(commit)}
                   >
-                    <div className="commit-message">{commit.message}</div>
+                    <div className="commit-message">{commit.summary}</div>
                     <div className="commit-date">
                       {new Date(commit.date).toLocaleString()}
                     </div>
@@ -679,8 +693,26 @@ ${commit.message}`
                 <pre>{selectedCommit.formattedDetails}</pre>
               ) : selectedCommit ? (
                 <>
-                  <h3>{selectedCommit.message}</h3>
-                  <p>{selectedCommit.date}</p>
+                  <div className="commit-header">
+                    <p>Commit: {selectedCommit.id}</p>
+                    <p>Author: {selectedCommit.author} &lt;{selectedCommit.email}&gt;</p>
+                    <p>Date: {new Date(selectedCommit.date).toLocaleString()}</p>
+                  </div>
+
+                  {selectedCommit.message.includes('_summEnd_') ? (
+                    <>
+                      <h3>Summary:</h3>
+                      <p>{selectedCommit.message.split('_summEnd_')[0].trim()}</p>
+                      <h3>Description:</h3>
+                      <p>{selectedCommit.message.split('_summEnd_')[1].trim()}</p>
+                    </>
+                  ) : (
+                    <>
+                      <h3>Summary:</h3>
+                      <p>{selectedCommit.message.trim()}</p>
+                    </>
+                  )}
+
                   {selectedCommit.details && <pre>{selectedCommit.details}</pre>}
                 </>
               ) : (
