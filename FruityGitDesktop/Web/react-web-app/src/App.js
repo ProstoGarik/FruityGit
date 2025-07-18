@@ -12,6 +12,13 @@ function App() {
   const [repos, setRepos] = useState([]);
   const [user, setUser] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [showCreateRepo, setShowCreateRepo] = useState(false);
+  const [repoName, setRepoName] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState(null);
+  const [commits, setCommits] = useState([]);
+  const [selectedCommit, setSelectedCommit] = useState(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Get access token from localStorage
   const getAccessToken = () => localStorage.getItem('accessToken');
@@ -79,6 +86,124 @@ function App() {
     localStorage.removeItem('userEmail');
     setUser(null);
     setRepos([]);
+  };
+
+
+  const handleCreateRepo = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!user || !user.id) {
+      setError('User information is incomplete');
+      return;
+    }
+
+    if (!repoName.trim()) {
+      setError('Repository name is required');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(repoName)) {
+      setError('Repository name must be 1-100 characters (letters, numbers, hyphens, underscores)');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/${encodeURIComponent(repoName)}/init`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            IsPrivate: isPrivate,
+            UserId: user.id
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMessage = errorData.message ||
+          (response.status === 400 ? 'Repository already exists' : 'Failed to create repository');
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      setRepoName('');
+      setIsPrivate(false);
+      setShowCreateRepo(false);
+
+      // Refresh the repository list
+      await handleRefreshRepo();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleShowRepo = async (repoName) => {
+    if (!repoName || !user) return;
+
+    setIsLoadingHistory(true);
+    setSelectedRepo(repoName);
+    setCommits([]);
+    setSelectedCommit(null);
+
+    try {
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/${encodeURIComponent(repoName)}/history`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            Id: user.id,
+            Name: user.name,
+            Email: user.email
+          }),
+        }
+      );
+
+      if (response.status === 401) {
+        setError("You don't have access to this private repository");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error('Error getting commit history');
+      }
+
+      const historyData = await response.json();
+      const commitHistory = historyData.commits || [];
+
+      // Process the commit history - extract summary from message
+      const processedCommits = commitHistory.map((commit) => {
+        const message = commit.Message || commit.message || '';
+        const summary = message.includes('_summEnd_')
+          ? message.split('_summEnd_')[0].trim()
+          : message.trim();
+
+        return {
+          id: commit.Id || commit.id || '',
+          author: commit.Author || commit.author || '',
+          message: message,
+          summary: summary,
+          date: commit.Date || commit.date || new Date().toISOString(),
+          email: commit.Email || commit.email || '',
+        };
+      });
+
+      setCommits(processedCommits);
+    } catch (error) {
+      console.error('Show repo error:', error);
+      setError(error.message);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleCommitSelect = (commit) => {
+    setSelectedCommit(commit);
   };
 
   const handleRefreshRepo = async () => {
@@ -273,13 +398,22 @@ function App() {
           <div className="repositories-section">
             <div className="repositories-header">
               <h3>Your Repositories</h3>
-              <button
-                className="btn btn-refresh"
-                onClick={handleRefreshRepo}
-                disabled={isLoadingRepos}
-              >
-                {isLoadingRepos ? 'Refreshing...' : 'Refresh'}
-              </button>
+              <div className="repo-actions">
+                <button
+                  className="btn btn-refresh"
+                  onClick={handleRefreshRepo}
+                  disabled={isLoadingRepos}
+                >
+                  {isLoadingRepos ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <button
+                  className="btn btn-create"
+                  onClick={() => setShowCreateRepo(true)}
+                  disabled={isLoadingRepos}
+                >
+                  Create Repository
+                </button>
+              </div>
             </div>
 
             {isLoadingRepos ? (
@@ -287,7 +421,11 @@ function App() {
             ) : repos.length > 0 ? (
               <ul className="repository-list">
                 {repos.map((repo, index) => (
-                  <li key={index} className="repository-item">
+                  <li
+                    key={index}
+                    className="repository-item"
+                    onClick={() => handleShowRepo(repo.name)}
+                  >
                     <div className="repo-name">{repo.name}</div>
                     <div className="repo-description">{repo.description || 'No description'}</div>
                     <div className="repo-meta">
@@ -300,6 +438,75 @@ function App() {
               <div className="no-repositories">No repositories found</div>
             )}
           </div>
+          {selectedRepo && (
+            <div className="history-container">
+              <h3>Commit History for {selectedRepo}</h3>
+
+              {isLoadingHistory ? (
+                <div className="loading">Loading commit history...</div>
+              ) : (
+                <div className="history-columns">
+                  {/* Commit List */}
+                  <div className="commit-list">
+                    <h4>Commits</h4>
+                    {commits.length > 0 ? (
+                      <ul>
+                        {commits.map(commit => (
+                          <li
+                            key={commit.id}
+                            className={`commit-item ${selectedCommit?.id === commit.id ? 'selected' : ''}`}
+                            onClick={() => handleCommitSelect(commit)}
+                          >
+                            <div className="commit-message">{commit.summary}</div>
+                            <div className="commit-meta">
+                              <span className="commit-author">{commit.author}</span>
+                              <span className="commit-date">
+                                {new Date(commit.date).toLocaleString()}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div>No commits found</div>
+                    )}
+                  </div>
+
+                  {/* Commit Details */}
+                  <div className="commit-details">
+                    <h4>Commit Details</h4>
+                    {selectedCommit ? (
+                      <div className="commit-detail-content">
+                        <div className="commit-header">
+                          <p><strong>Commit ID:</strong> {selectedCommit.id}</p>
+                          <p><strong>Author:</strong> {selectedCommit.author} &lt;{selectedCommit.email}&gt;</p>
+                          <p><strong>Date:</strong> {new Date(selectedCommit.date).toLocaleString()}</p>
+                        </div>
+
+                        <div className="commit-message-content">
+                          {selectedCommit.message.includes('_summEnd_') ? (
+                            <>
+                              <h5>Summary:</h5>
+                              <p>{selectedCommit.message.split('_summEnd_')[0].trim()}</p>
+                              <h5>Description:</h5>
+                              <p>{selectedCommit.message.split('_summEnd_')[1].trim()}</p>
+                            </>
+                          ) : (
+                            <>
+                              <h5>Message:</h5>
+                              <p>{selectedCommit.message.trim()}</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>Select a commit to view details</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="signin-container">
@@ -374,6 +581,81 @@ function App() {
                 )}
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {showCreateRepo && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Create New Repository</h2>
+              <button
+                className="close-button"
+                onClick={() => setShowCreateRepo(false)}
+                disabled={isLoading}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="modal-content">
+              <form onSubmit={handleCreateRepo}>
+                <div className="form-group">
+                  <label htmlFor="repo-name">Repository Name:</label>
+                  <input
+                    id="repo-name"
+                    type="text"
+                    value={repoName}
+                    onChange={(e) => {
+                      setRepoName(e.target.value);
+                      setError('');
+                    }}
+                    placeholder="my-repository"
+                    required
+                    disabled={isLoading}
+                    maxLength={100}
+                  />
+                  <div className="hint">
+                    1-100 characters (letters, numbers, hyphens, underscores)
+                  </div>
+                </div>
+
+                <div className="form-group checkbox-group">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={isPrivate}
+                      onChange={() => setIsPrivate(!isPrivate)}
+                      disabled={isLoading}
+                    />
+                    <span className="checkbox-label">Private Repository</span>
+                    <div className="hint">
+                      Only you will be able to see and access this repository
+                    </div>
+                  </label>
+                </div>
+
+                {error && <div className="error-message">{error}</div>}
+
+                <div className="button-group">
+                  <button
+                    type="button"
+                    className="btn btn-cancel"
+                    onClick={() => setShowCreateRepo(false)}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-create"
+                    disabled={isLoading || !repoName.trim()}
+                  >
+                    {isLoading ? 'Creating...' : 'Create Repository'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

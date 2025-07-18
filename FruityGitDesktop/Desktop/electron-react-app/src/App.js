@@ -26,6 +26,10 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState(null);
   const [showCreateRepo, setShowCreateRepo] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState(null);
+  const [commits, setCommits] = useState([]);
+  const [selectedCommit, setSelectedCommit] = useState(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const fetchWithAuth = async (url, options = {}, isRetry = false) => {
     const accessToken = getAccessToken();

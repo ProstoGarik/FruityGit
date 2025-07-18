@@ -29,7 +29,6 @@ public class GitController : ControllerBase
         Directory.CreateDirectory(_reposRootPath);
     }
 
-
     [HttpPost("{repoName}/init")]
     public async Task<IActionResult> InitializeRepository(string repoName, [FromBody] RepositoryInitRequest request)
     {
@@ -49,10 +48,19 @@ public class GitController : ControllerBase
             
             var repoPath = Path.Combine(_reposRootPath, repoName);
 
-            if (Directory.Exists(repoPath) && LibGit2Sharp.Repository.IsValid(repoPath) || 
-                await _context.Repositories.AnyAsync(r => r.Name == repoName))
+            // Check if this user already has a repository with this name
+            var userRepoExists = await _context.Repositories
+                .AnyAsync(r => r.Name == repoName && r.AuthorId == request.UserId);
+                
+            if (userRepoExists)
             {
-                return BadRequest("Repository already exists");
+                return BadRequest("You already have a repository with this name");
+            }
+
+            // Check if the physical directory exists (global check)
+            if (Directory.Exists(repoPath) && LibGit2Sharp.Repository.IsValid(repoPath))
+            {
+                return BadRequest("A repository with this name already exists in the system");
             }
 
             if (Directory.Exists(repoPath))
