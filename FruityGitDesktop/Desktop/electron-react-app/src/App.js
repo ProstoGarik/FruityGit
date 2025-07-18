@@ -19,17 +19,14 @@ function App() {
   const [commits, setCommits] = useState([]);
   const [selectedCommit, setSelectedCommit] = useState(null);
   const [attachedFile, setAttachedFile] = useState(null);
-  const serverPath = 'http://192.168.135.52:8081';
+  const serverPath = 'http://192.168.1.54:8081';
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState(null);
   const [processWithPython, setProcessWithPython] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState(null);
   const [showCreateRepo, setShowCreateRepo] = useState(false);
-  const [selectedRepo, setSelectedRepo] = useState(null);
-  const [commits, setCommits] = useState([]);
-  const [selectedCommit, setSelectedCommit] = useState(null);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
 
   const fetchWithAuth = async (url, options = {}, isRetry = false) => {
     const accessToken = getAccessToken();

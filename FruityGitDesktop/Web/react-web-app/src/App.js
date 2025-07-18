@@ -129,7 +129,6 @@ function App() {
         throw new Error(errorMessage);
       }
 
-      const result = await response.json();
       setRepoName('');
       setIsPrivate(false);
       setShowCreateRepo(false);
@@ -229,7 +228,13 @@ function App() {
       }
 
       const data = await response.json();
-      setRepos(data.repositories || []);
+      // Transform the array of strings into objects with the expected properties
+      const formattedRepos = data.repositories.map(repoName => ({
+        name: repoName,
+        description: '', // Default empty description
+        updatedAt: new Date().toISOString() // Use current date as fallback
+      }));
+      setRepos(formattedRepos);
     } catch (error) {
       console.error('Refresh repo error:', error);
       setError(error.message);
@@ -424,12 +429,16 @@ function App() {
                   <li
                     key={index}
                     className="repository-item"
-                    onClick={() => handleShowRepo(repo.name)}
                   >
-                    <div className="repo-name">{repo.name}</div>
-                    <div className="repo-description">{repo.description || 'No description'}</div>
-                    <div className="repo-meta">
-                      <span>Last updated: {new Date(repo.updatedAt).toLocaleString()}</span>
+                    <div
+                      className="repo-clickable-area"
+                      onClick={() => handleShowRepo(repo.name)}
+                    >
+                      <div className="repo-name">{repo.name}</div>
+                      <div className="repo-description">{repo.description || 'No description'}</div>
+                      <div className="repo-meta">
+                        <span>Last updated: {new Date(repo.updatedAt).toLocaleString()}</span>
+                      </div>
                     </div>
                   </li>
                 ))}

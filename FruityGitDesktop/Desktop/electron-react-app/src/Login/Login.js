@@ -74,6 +74,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    UserName: name,  // Add username to the request
                     Email: email,
                     Password: password,
                     RoleName: 'User'
@@ -92,9 +93,9 @@ const LoginWindow = ({ onClose, serverPath }) => {
 
             onClose({
                 id: data.user.id,
-                name: name, // Using the name from state since it's not in the response
+                name: name, // Use the username from state
                 email: email,
-                roles: ['User'] // Default role
+                roles: ['User']
             });
         } catch (err) {
             console.error('Registration error:', err);
@@ -121,11 +122,11 @@ const LoginWindow = ({ onClose, serverPath }) => {
                     <form onSubmit={isRegistering ? handleRegister : handleLogin}>
                         {isRegistering && (
                             <div className="input-group">
-                                <label>Name:</label>
+                                <label>Username:</label>
                                 <input
                                     type="text"
                                     className="login-input"
-                                    placeholder="Enter your name"
+                                    placeholder="Enter your username"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     required

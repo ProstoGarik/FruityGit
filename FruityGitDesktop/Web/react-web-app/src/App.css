@@ -406,3 +406,19 @@
   border-radius: 4px;
   white-space: pre-wrap;
 }
+
+.repository-item {
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.repo-clickable-area {
+  padding: 1rem;
+  border-radius: 4px;
+  background-color: #2d3748;
+  transition: background-color 0.2s;
+}
+
+.repo-clickable-area:hover {
+  background-color: #4a5568;
+}
