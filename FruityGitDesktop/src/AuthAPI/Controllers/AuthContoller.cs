@@ -69,7 +69,7 @@ namespace AuthAPI.Controllers
             if (userByName != null)
                 return BadRequest("Username is already taken");
 
-            user = new User
+            var user = new User
             {
                 UserName = request.UserName, // Use the provided username
                 Email = request.Email
@@ -106,6 +106,7 @@ namespace AuthAPI.Controllers
             }
             return BadRequest(result.Errors);
         }
+
         [HttpGet("validate")]
         public async Task<IActionResult> ValidateAsync([FromQuery(Name = "email")] string email, [FromQuery(Name = "token")] string token)
         {
