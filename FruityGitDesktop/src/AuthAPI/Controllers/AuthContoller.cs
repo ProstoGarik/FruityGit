@@ -61,15 +61,20 @@ namespace AuthAPI.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            var user = await _userManager.FindByEmailAsync(request.Email);
-            if (user != null)
-                return Ok(user);
+            var userByEmail = await _userManager.FindByEmailAsync(request.Email);
+            if (userByEmail != null)
+                return BadRequest("Email is already taken");
+
+            var userByName = await _userManager.FindByNameAsync(request.UserName);
+            if (userByName != null)
+                return BadRequest("Username is already taken");
 
             user = new User
             {
-                UserName = request.Email,
+                UserName = request.UserName, // Use the provided username
                 Email = request.Email
             };
+            
             var result = await _userManager.CreateAsync(user, request.Password);
 
             if (result.Succeeded)
@@ -92,17 +97,14 @@ namespace AuthAPI.Controllers
                 var token = _jwtTokenHandler.GenerateJwtToken(user, request.RoleName);
 
                 await _userManager.UpdateAsync(user);
-                return Ok(
-
-                        new SecurityResponse
-                        {
-                            User = user,
-                            Token = token,
-                            RefreshToken = originalRefreshToken
-                        });
+                return Ok(new SecurityResponse
+                {
+                    User = user,
+                    Token = token,
+                    RefreshToken = originalRefreshToken
+                });
             }
             return BadRequest(result.Errors);
-
         }
         [HttpGet("validate")]
         public async Task<IActionResult> ValidateAsync([FromQuery(Name = "email")] string email, [FromQuery(Name = "token")] string token)

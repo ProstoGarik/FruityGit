@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
-  const serverPath = "http://192.168.135.52:8081";
+  const serverPath = "http://192.168.1.54:8081";
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [repos, setRepos] = useState([]);
   const [user, setUser] = useState(null);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   // Get access token from localStorage
   const getAccessToken = () => localStorage.getItem('accessToken');
@@ -165,6 +167,62 @@ function App() {
     }
   };
 
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!name || !email || !password) {
+      setError('Name, email and password are required');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${serverPath}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          UserName: name,  // Send username separately
+          Email: email,
+          Password: password,
+          RoleName: 'User'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+
+      // Store tokens and user info
+      localStorage.setItem('accessToken', data.token);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('userId', data.user.id);
+      localStorage.setItem('userName', data.user.userName); // Store the username
+      localStorage.setItem('userEmail', data.user.email);
+
+      // Set user state
+      setUser({
+        id: data.user.id,
+        name: data.user.userName, // Use the username from response
+        email: data.user.email
+      });
+
+      // Automatically fetch repositories after registration
+      await handleRefreshRepo();
+
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Check for existing session on initial load
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -192,8 +250,18 @@ function App() {
             <button className="btn btn-logout" onClick={handleLogout}>Sign out</button>
           ) : (
             <>
-              <button className="btn btn-login">Sign in</button>
-              <button className="btn btn-register">Sign up</button>
+              <button
+                className={`btn ${!isRegistering ? 'btn-active' : 'btn-login'}`}
+                onClick={() => setIsRegistering(false)}
+              >
+                Sign in
+              </button>
+              <button
+                className={`btn ${isRegistering ? 'btn-active' : 'btn-register'}`}
+                onClick={() => setIsRegistering(true)}
+              >
+                Sign up
+              </button>
             </>
           )}
         </div>
@@ -205,15 +273,15 @@ function App() {
           <div className="repositories-section">
             <div className="repositories-header">
               <h3>Your Repositories</h3>
-              <button 
-                className="btn btn-refresh" 
+              <button
+                className="btn btn-refresh"
                 onClick={handleRefreshRepo}
                 disabled={isLoadingRepos}
               >
                 {isLoadingRepos ? 'Refreshing...' : 'Refresh'}
               </button>
             </div>
-            
+
             {isLoadingRepos ? (
               <div className="loading">Loading repositories...</div>
             ) : repos.length > 0 ? (
@@ -236,8 +304,21 @@ function App() {
       ) : (
         <div className="signin-container">
           <div className="signin-box">
-            <h2>Sign in to your account</h2>
-            <form className="signin-form" onSubmit={handleLogin}>
+            <h2>{isRegistering ? 'Create an account' : 'Sign in to your account'}</h2>
+            <form className="signin-form" onSubmit={isRegistering ? handleRegister : handleLogin}>
+              {isRegistering && (
+                <div className="form-group">
+                  <label htmlFor="name">Name</label>
+                  <input
+                    type="text"
+                    id="name"
+                    className="form-input"
+                    placeholder="Your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="form-group">
                 <label htmlFor="email">Email address</label>
                 <input
@@ -252,7 +333,9 @@ function App() {
               <div className="form-group">
                 <div className="password-label-container">
                   <label htmlFor="password">Password</label>
-                  <a href="/forgot" className="forgot-password">Forgot password?</a>
+                  {!isRegistering && (
+                    <a href="/forgot" className="forgot-password">Forgot password?</a>
+                  )}
                 </div>
                 <input
                   type="password"
@@ -269,8 +352,27 @@ function App() {
                 className="btn btn-signin"
                 disabled={isLoading}
               >
-                {isLoading ? 'Signing in...' : 'Sign in'}
+                {isLoading
+                  ? (isRegistering ? 'Signing up...' : 'Signing in...')
+                  : (isRegistering ? 'Sign up' : 'Sign in')}
               </button>
+              <div className="toggle-auth">
+                {isRegistering ? (
+                  <p>
+                    Already have an account?{' '}
+                    <button type="button" className="toggle-auth-btn" onClick={() => setIsRegistering(false)}>
+                      Sign in
+                    </button>
+                  </p>
+                ) : (
+                  <p>
+                    Don't have an account?{' '}
+                    <button type="button" className="toggle-auth-btn" onClick={() => setIsRegistering(true)}>
+                      Sign up
+                    </button>
+                  </p>
+                )}
+              </div>
             </form>
           </div>
         </div>
