@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
-  const serverPath = "http://192.168.1.54:8081";
+  const serverPath = "http://192.168.135.73:8081";
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -19,6 +19,11 @@ function App() {
   const [commits, setCommits] = useState([]);
   const [selectedCommit, setSelectedCommit] = useState(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [currentPath, setCurrentPath] = useState('');
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [fileContent, setFileContent] = useState('');
+  const [isLoadingFileContent, setIsLoadingFileContent] = useState(false);
 
   // Get access token from localStorage
   const getAccessToken = () => localStorage.getItem('accessToken');
@@ -62,7 +67,9 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refreshToken })
+        body: JSON.stringify({
+          Token: refreshToken // Match the backend's RefreshTokenRequest format
+        }),
       });
 
       if (!response.ok) {
@@ -70,22 +77,81 @@ function App() {
       }
 
       const data = await response.json();
-      localStorage.setItem('accessToken', data.token);
-      return data.token;
+      localStorage.setItem('accessToken', data.Token); // Uppercase 'Token'
+      return data.Token;
     } catch (error) {
       console.error('Token refresh error:', error);
       return null;
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userEmail');
-    setUser(null);
-    setRepos([]);
+  const fetchRepositoryFiles = async (repoName, path = '') => {
+    if (!repoName || !user) return;
+
+    setIsLoadingFiles(true);
+    setCurrentPath(path);
+    setFiles([]);
+    setFileContent('');
+
+    try {
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/${encodeURIComponent(repoName)}/files`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            Id: user.id,
+            Name: user.name,
+            Email: user.email
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Error getting repository files');
+      }
+
+      const data = await response.json();
+      setFiles(data.files || []);
+    } catch (error) {
+      console.error('Error fetching repository files:', error);
+      setError(error.message);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
+  const fetchFileContent = async (repoName, filePath) => {
+    if (!repoName || !filePath || !user) return;
+
+    setIsLoadingFileContent(true);
+    setFileContent('');
+
+    try {
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/${encodeURIComponent(repoName)}/file`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            Id: user.id,
+            Name: user.name,
+            Email: user.email,
+            Path: filePath
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Error getting file content');
+      }
+
+      const data = await response.text();
+      setFileContent(data);
+    } catch (error) {
+      console.error('Error fetching file content:', error);
+      setError(error.message);
+    } finally {
+      setIsLoadingFileContent(false);
+    }
   };
 
 
@@ -149,9 +215,12 @@ function App() {
     setSelectedRepo(repoName);
     setCommits([]);
     setSelectedCommit(null);
+    setFiles([]);
+    setCurrentPath('');
 
     try {
-      const response = await fetchWithAuth(
+      // Fetch commit history
+      const historyResponse = await fetchWithAuth(
         `${serverPath}/api/git/${encodeURIComponent(repoName)}/history`,
         {
           method: 'POST',
@@ -163,36 +232,22 @@ function App() {
         }
       );
 
-      if (response.status === 401) {
+      if (historyResponse.status === 401) {
         setError("You don't have access to this private repository");
         return;
       }
 
-      if (!response.ok) {
+      if (!historyResponse.ok) {
         throw new Error('Error getting commit history');
       }
 
-      const historyData = await response.json();
+      const historyData = await historyResponse.json();
       const commitHistory = historyData.commits || [];
-
-      // Process the commit history - extract summary from message
-      const processedCommits = commitHistory.map((commit) => {
-        const message = commit.Message || commit.message || '';
-        const summary = message.includes('_summEnd_')
-          ? message.split('_summEnd_')[0].trim()
-          : message.trim();
-
-        return {
-          id: commit.Id || commit.id || '',
-          author: commit.Author || commit.author || '',
-          message: message,
-          summary: summary,
-          date: commit.Date || commit.date || new Date().toISOString(),
-          email: commit.Email || commit.email || '',
-        };
-      });
-
+      const processedCommits = processCommits(commitHistory);
       setCommits(processedCommits);
+
+      // Fetch files
+      await fetchRepositoryFiles(repoName);
     } catch (error) {
       console.error('Show repo error:', error);
       setError(error.message);
@@ -272,18 +327,18 @@ function App() {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Store tokens and user info
-      localStorage.setItem('accessToken', data.token);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('userId', data.user.id);
-      localStorage.setItem('userName', data.user.userName);
-      localStorage.setItem('userEmail', data.user.email);
+      // Store tokens and user info - NOTE THE UPPERCASE PROPERTIES
+      localStorage.setItem('accessToken', data.Token);
+      localStorage.setItem('refreshToken', data.RefreshToken);
+      localStorage.setItem('userId', data.User.Id);
+      localStorage.setItem('userName', data.User.UserName);
+      localStorage.setItem('userEmail', data.User.Email);
 
       // Set user state
       setUser({
-        id: data.user.id,
-        name: data.user.userName,
-        email: data.user.email
+        id: data.User.Id,
+        name: data.User.UserName,
+        email: data.User.Email
       });
 
       // Automatically fetch repositories after login
@@ -315,10 +370,10 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          UserName: name,  // Send username separately
+          UserName: name,  // Must match backend expectation
           Email: email,
           Password: password,
-          RoleName: 'User'
+          RoleName: 'User'  // Default role
         }),
       });
 
@@ -328,18 +383,18 @@ function App() {
         throw new Error(data.message || 'Registration failed');
       }
 
-      // Store tokens and user info
-      localStorage.setItem('accessToken', data.token);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('userId', data.user.id);
-      localStorage.setItem('userName', data.user.userName); // Store the username
-      localStorage.setItem('userEmail', data.user.email);
+      // Store tokens and user info - NOTE THE UPPERCASE PROPERTIES
+      localStorage.setItem('accessToken', data.Token);
+      localStorage.setItem('refreshToken', data.RefreshToken);
+      localStorage.setItem('userId', data.User.Id);
+      localStorage.setItem('userName', data.User.UserName);
+      localStorage.setItem('userEmail', data.User.Email);
 
       // Set user state
       setUser({
-        id: data.user.id,
-        name: data.user.userName, // Use the username from response
-        email: data.user.email
+        id: data.User.Id,
+        name: data.User.UserName,
+        email: data.User.Email
       });
 
       // Automatically fetch repositories after registration
@@ -351,6 +406,42 @@ function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const processCommits = (commitHistory) => {
+    return commitHistory.map((commit) => {
+      const message = commit.Message || commit.message || '';
+      const summary = message.includes('_summEnd_')
+        ? message.split('_summEnd_')[0].trim()
+        : message.trim();
+
+      return {
+        id: commit.Id || commit.id || '',
+        author: commit.Author || commit.author || '',
+        message: message,
+        summary: summary,
+        date: commit.Date || commit.date || new Date().toISOString(),
+        email: commit.Email || commit.email || '',
+      };
+    });
+  };
+
+  const navigateUpDirectory = () => {
+    if (!selectedRepo || !currentPath) return;
+
+    const pathParts = currentPath.split('/');
+    pathParts.pop();
+    const newPath = pathParts.join('/');
+
+    fetchRepositoryFiles(selectedRepo, newPath);
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   // Check for existing session on initial load
@@ -510,6 +601,68 @@ function App() {
                       </div>
                     ) : (
                       <div>Select a commit to view details</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {selectedRepo && (
+            <div className="file-browser-container">
+              <h3>Files in {selectedRepo}</h3>
+              {currentPath && (
+                <div className="file-browser-path">
+                  <button
+                    className="btn btn-path-up"
+                    onClick={() => navigateUpDirectory()}
+                  >
+                    ↑ Up
+                  </button>
+                  <span>{currentPath || 'Root'}</span>
+                </div>
+              )}
+
+              {isLoadingFiles ? (
+                <div className="loading">Loading files...</div>
+              ) : (
+                <div className="file-browser">
+                  <div className="file-list">
+                    {files.length > 0 ? (
+                      <ul>
+                        {files.map((file, index) => (
+                          <li
+                            key={index}
+                            className={`file-item ${file.Type === 'directory' ? 'directory' : 'file'}`}
+                            onClick={() => {
+                              if (file.Type === 'directory') {
+                                fetchRepositoryFiles(selectedRepo, file.Path);
+                              } else {
+                                fetchFileContent(selectedRepo, file.Path);
+                              }
+                            }}
+                          >
+                            <span className="file-icon">
+                              {file.Type === 'directory' ? '📁' : '📄'}
+                            </span>
+                            <span className="file-name">{file.Name}</span>
+                            {file.Type === 'file' && (
+                              <span className="file-size">{formatFileSize(file.Size)}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div>No files found</div>
+                    )}
+                  </div>
+
+                  <div className="file-content">
+                    {isLoadingFileContent ? (
+                      <div className="loading">Loading file content...</div>
+                    ) : fileContent ? (
+                      <pre>{fileContent}</pre>
+                    ) : (
+                      <div>Select a file to view its content</div>
                     )}
                   </div>
                 </div>

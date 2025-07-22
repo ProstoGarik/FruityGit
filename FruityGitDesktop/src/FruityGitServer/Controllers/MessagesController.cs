@@ -378,6 +378,47 @@ public class GitController : ControllerBase
         }
     }
 
+    [HttpPost("{repoName}/files")]
+    public async Task<IActionResult> GetRepositoryFiles(string repoName, [FromBody] UserInfoDto userInfo)
+    {
+        try
+        {
+            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            {
+                return BadRequest("User information is required");
+            }
+
+            if (!IsValidRepoName(repoName))
+            {
+                return BadRequest("Invalid repository name");
+            }
+
+            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
+            if (accessCheck != null) return accessCheck;
+
+            var repoPath = Path.Combine(_reposRootPath, repoName);
+            var root = new DirectoryInfo(repoPath);
+            
+            if (!root.Exists)
+            {
+                return Ok(new { Files = new List<object>() });
+            }
+
+            var files = GetDirectoryContents(root, repoPath);
+
+            return Ok(new { Files = files });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error getting repository files: {ex}");
+            return StatusCode(500, new
+            {
+                Error = "Failed to retrieve repository files",
+                Message = ex.Message
+            });
+        }
+    }
+
     private async Task<IActionResult> CheckRepositoryAccess(string repoName, string userId)
     {
         var repository = await _context.Repositories
@@ -408,6 +449,51 @@ public class GitController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(repoName)) return false;
         return repoName.IndexOfAny(Path.GetInvalidFileNameChars()) < 0;
+    }
+
+    private List<object> GetDirectoryContents(DirectoryInfo directory, string basePath)
+    {
+        var contents = new List<object>();
+        
+        // Add files
+        foreach (var file in directory.GetFiles())
+        {
+            // Skip .git directory contents
+            if (file.DirectoryName.Contains(Path.Combine(basePath, ".git")))
+            {
+                continue;
+            }
+
+            contents.Add(new
+            {
+                Name = file.Name,
+                Path = Path.GetRelativePath(basePath, file.FullName),
+                Type = "file",
+                Size = file.Length,
+                LastModified = file.LastWriteTimeUtc
+            });
+        }
+
+        // Add directories
+        foreach (var dir in directory.GetDirectories())
+        {
+            // Skip .git directory
+            if (dir.Name == ".git")
+            {
+                continue;
+            }
+
+            contents.Add(new
+            {
+                Name = dir.Name,
+                Path = Path.GetRelativePath(basePath, dir.FullName),
+                Type = "directory",
+                LastModified = dir.LastWriteTimeUtc,
+                Contents = GetDirectoryContents(dir, basePath)
+            });
+        }
+
+        return contents;
     }
 }
 
