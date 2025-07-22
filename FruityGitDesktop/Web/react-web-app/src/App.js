@@ -352,6 +352,40 @@ function App() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      // Call backend logout endpoint if needed
+      await fetch(`${serverPath}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken()}`
+        },
+        body: JSON.stringify({
+          Email: user?.email
+        })
+      });
+
+      // Clear local storage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
+
+      // Reset state
+      setUser(null);
+      setRepos([]);
+      setSelectedRepo(null);
+      setCommits([]);
+      setFiles([]);
+      setError('');
+    } catch (error) {
+      console.error('Logout error:', error);
+      setError('Error during logout');
+    }
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');

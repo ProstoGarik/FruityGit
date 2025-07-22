@@ -1,17 +1,21 @@
 {
   "Routes": [
-    {
-      "UpstreamPathTemplate": "/api/auth/login",
-      "UpstreamHttpMethod": ["Post", "Options"],
-      "DownstreamScheme": "http",
-      "DownstreamHostAndPorts": [
-        {
-          "Host": "auth-api",
-          "Port": 8080
-        }
-      ],
-      "DownstreamPathTemplate": "/api/auth/login"
-    },
+      {
+    "DownstreamPathTemplate": "/api/auth/login",
+    "DownstreamScheme": "http",
+    "DownstreamHostAndPorts": [
+      {
+        "Host": "auth-api",
+        "Port": 8080
+      }
+    ],
+    "UpstreamPathTemplate": "/api/auth/login",
+    "UpstreamHttpMethod": [ "POST", "OPTIONS" ],
+    "AuthenticationOptions": {
+      "AuthenticationProviderKey": null,
+      "AllowedScopes": []
+    }
+  },
     {
       "UpstreamPathTemplate": "/api/auth/register",
       "UpstreamHttpMethod": ["Post", "Options"],

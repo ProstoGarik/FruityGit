@@ -75,5 +75,5 @@ async Task InitializeDataSources(WebApplication application)
 {
     using var scope = application.Services.CreateScope();
     var dataContext = scope.ServiceProvider.GetRequiredService<DataContext>();
-    await dataContext.InitializeAsync(); // No need for try-catch here now
+    await dataContext.InitializeAsync();
 }
