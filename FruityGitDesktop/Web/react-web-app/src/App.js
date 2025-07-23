@@ -327,18 +327,18 @@ function App() {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Store tokens and user info - NOTE THE UPPERCASE PROPERTIES
-      localStorage.setItem('accessToken', data.Token);
-      localStorage.setItem('refreshToken', data.RefreshToken);
-      localStorage.setItem('userId', data.User.Id);
-      localStorage.setItem('userName', data.User.UserName);
-      localStorage.setItem('userEmail', data.User.Email);
+      // Store tokens and user info - MATCHING THE BACKEND RESPONSE STRUCTURE
+      localStorage.setItem('accessToken', data.token); // lowercase 'token'
+      localStorage.setItem('refreshToken', data.refreshToken); // lowercase 'refreshToken'
+      localStorage.setItem('userId', data.user.id); // lowercase 'user.id'
+      localStorage.setItem('userName', data.user.userName); // lowercase 'user.userName'
+      localStorage.setItem('userEmail', data.user.email); // lowercase 'user.email'
 
       // Set user state
       setUser({
-        id: data.User.Id,
-        name: data.User.UserName,
-        email: data.User.Email
+        id: data.user.id,
+        name: data.user.userName,
+        email: data.user.email
       });
 
       // Automatically fetch repositories after login
@@ -662,29 +662,41 @@ function App() {
                 <div className="file-browser">
                   <div className="file-list">
                     {files.length > 0 ? (
-                      <ul>
-                        {files.map((file, index) => (
-                          <li
-                            key={index}
-                            className={`file-item ${file.Type === 'directory' ? 'directory' : 'file'}`}
-                            onClick={() => {
-                              if (file.Type === 'directory') {
-                                fetchRepositoryFiles(selectedRepo, file.Path);
-                              } else {
-                                fetchFileContent(selectedRepo, file.Path);
-                              }
-                            }}
-                          >
-                            <span className="file-icon">
-                              {file.Type === 'directory' ? '📁' : '📄'}
-                            </span>
-                            <span className="file-name">{file.Name}</span>
-                            {file.Type === 'file' && (
-                              <span className="file-size">{formatFileSize(file.Size)}</span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
+                      <table className="file-table">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Modified</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {files.map((file, index) => (
+                            <tr
+                              key={index}
+                              className={`file-item ${file.type === 'directory' ? 'directory' : 'file'}`}
+                              onClick={() => {
+                                if (file.type === 'directory') {
+                                  fetchRepositoryFiles(selectedRepo, file.path);
+                                } else {
+                                  fetchFileContent(selectedRepo, file.path);
+                                }
+                              }}
+                            >
+                              <td>
+                                <span className="file-icon">
+                                  {file.type === 'directory' ? '📁' : '📄'}
+                                </span>
+                                {file.name}
+                              </td>
+                              <td>{file.type}</td>
+                              <td>{file.type === 'file' ? formatFileSize(file.size) : '-'}</td>
+                              <td>{new Date(file.lastModified).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     ) : (
                       <div>No files found</div>
                     )}
