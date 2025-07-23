@@ -419,6 +419,78 @@ public class GitController : ControllerBase
         }
     }
 
+
+    [HttpGet("users/search")]
+    public async Task<IActionResult> SearchUsers([FromQuery] string query)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(query) || query.Length < 3)
+            {
+                return BadRequest("Search query must be at least 3 characters");
+            }
+
+            var users = await _context.Users
+                .Where(u => u.UserName.Contains(query) || u.Email.Contains(query))
+                .Select(u => new
+                {
+                    Id = u.Id,
+                    UserName = u.UserName,
+                    Email = u.Email
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Count = users.Count,
+                Users = users
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error searching users: {ex}");
+            return StatusCode(500, new
+            {
+                Error = "Search failed",
+                Message = ex.Message
+            });
+        }
+    }
+
+    [HttpGet("users/{userId}/repositories")]
+    public async Task<IActionResult> GetUserRepositories(string userId)
+    {
+        try
+        {
+            var repositories = await _context.Repositories
+                .Where(r => r.AuthorId == userId && !r.IsPrivate)
+                .Select(r => new
+                {
+                    r.Name,
+                    r.Description,
+                    r.CreatedAt,
+                    r.IsPrivate,
+                    AuthorName = r.Author.UserName
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                Count = repositories.Count,
+                Repositories = repositories
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error getting user repositories: {ex}");
+            return StatusCode(500, new
+            {
+                Error = "Failed to retrieve repositories",
+                Message = ex.Message
+            });
+        }
+    }
+
     private async Task<IActionResult> CheckRepositoryAccess(string repoName, string userId)
     {
         var repository = await _context.Repositories

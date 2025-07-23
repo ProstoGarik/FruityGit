@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import flpIcon from './img/FruityLoopsLogo.png'; // Adjust the path to your actual PNG file
 
 function App() {
   const serverPath = "http://192.168.135.73:8081";
@@ -24,6 +25,8 @@ function App() {
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [fileContent, setFileContent] = useState('');
   const [isLoadingFileContent, setIsLoadingFileContent] = useState(false);
+  const [expandedCommits, setExpandedCommits] = useState({});
+  const [expandedRepos, setExpandedRepos] = useState({});
 
   // Get access token from localStorage
   const getAccessToken = () => localStorage.getItem('accessToken');
@@ -257,7 +260,39 @@ function App() {
   };
 
   const handleCommitSelect = (commit) => {
-    setSelectedCommit(commit);
+    setExpandedCommits(prev => ({
+      ...prev,
+      [commit.id]: !prev[commit.id] // Toggle the expanded state
+    }));
+
+    // Only set as selected commit if expanding (first click)
+    if (!expandedCommits[commit.id]) {
+      setSelectedCommit(commit);
+    } else {
+      setSelectedCommit(null); // Collapse on second click
+    }
+  };
+
+  const toggleRepoExpand = (repoName) => {
+    setExpandedRepos(prev => {
+      const isExpanding = !prev[repoName];
+      return {
+        ...prev,
+        [repoName]: isExpanding
+      };
+    });
+
+    // Show the repository when expanding
+    if (!expandedRepos[repoName]) {
+      handleShowRepo(repoName);
+    } else {
+      // Collapse the repository view
+      setSelectedRepo(null);
+      setCommits([]);
+      setSelectedCommit(null);
+      setFiles([]);
+      setCurrentPath('');
+    }
   };
 
   const handleRefreshRepo = async () => {
@@ -500,6 +535,33 @@ function App() {
             <a href="/">Explore</a>
           </div>
         </div>
+
+        {/* Added Search Bar in the middle */}
+        <div className="navbar-center">
+          <div className="search-container">
+            <input
+              type="text"
+              placeholder="Search repositories..."
+              className="search-input"
+            />
+            <button className="search-button">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
         <div className="navbar-right">
           {user ? (
             <button className="btn btn-logout" onClick={handleLogout}>Sign out</button>
@@ -551,19 +613,25 @@ function App() {
             ) : repos.length > 0 ? (
               <ul className="repository-list">
                 {repos.map((repo, index) => (
-                  <li
-                    key={index}
-                    className="repository-item"
-                  >
+                  <li key={index} className="repository-item">
                     <div
                       className="repo-clickable-area"
-                      onClick={() => handleShowRepo(repo.name)}
+                      onClick={() => toggleRepoExpand(repo.name)}
                     >
-                      <div className="repo-name">{repo.name}</div>
-                      <div className="repo-description">{repo.description || 'No description'}</div>
-                      <div className="repo-meta">
-                        <span>Last updated: {new Date(repo.updatedAt).toLocaleString()}</span>
+                      <div className="repo-header">
+                        <span className="repo-name">{repo.name}</span>
+                        <span className="repo-toggle-icon">
+                          {expandedRepos[repo.name] ? '▼' : '▶'}
+                        </span>
                       </div>
+                      {expandedRepos[repo.name] && (
+                        <div className="repo-details">
+                          <div className="repo-description">{repo.description || 'No description'}</div>
+                          <div className="repo-meta">
+                            <span>Last updated: {new Date(repo.updatedAt).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -588,7 +656,7 @@ function App() {
                         {commits.map(commit => (
                           <li
                             key={commit.id}
-                            className={`commit-item ${selectedCommit?.id === commit.id ? 'selected' : ''}`}
+                            className={`commit-item ${expandedCommits[commit.id] ? 'selected' : ''}`}
                             onClick={() => handleCommitSelect(commit)}
                           >
                             <div className="commit-message">{commit.summary}</div>
@@ -609,7 +677,7 @@ function App() {
                   {/* Commit Details */}
                   <div className="commit-details">
                     <h4>Commit Details</h4>
-                    {selectedCommit ? (
+                    {selectedCommit && expandedCommits[selectedCommit.id] ? (
                       <div className="commit-detail-content">
                         <div className="commit-header">
                           <p><strong>Commit ID:</strong> {selectedCommit.id}</p>
@@ -686,7 +754,13 @@ function App() {
                             >
                               <td>
                                 <span className="file-icon">
-                                  {file.type === 'directory' ? '📁' : '📄'}
+                                  {file.type === 'directory' ? (
+                                    '📁'
+                                  ) : file.name.endsWith('.flp') ? (
+                                    <img src={flpIcon} alt="FLP File" className="file-type-icon" />
+                                  ) : (
+                                    '📄'
+                                  )}
                                 </span>
                                 {file.name}
                               </td>
