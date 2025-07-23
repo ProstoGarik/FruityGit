@@ -30,34 +30,42 @@ namespace AuthAPI.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<SecurityResponse>> Login([FromBody] LoginRequest request)
         {
-            var result = await _signInManager.PasswordSignInAsync(request.Email, request.Password, false, false);
+            // Находим пользователя по email
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            
+            if (user == null)
+            {
+                return BadRequest("Invalid login attempt.");
+            }
+
+            // Получаем имя пользователя
+            var userName = user.UserName;
+            
+            // Выполняем вход по имени пользователя
+            var result = await _signInManager.PasswordSignInAsync(userName, request.Password, false, false);
 
             if (result.Succeeded)
             {
-                var user = _userManager.Users.SingleOrDefault(r => r.Email == request.Email);
-                if (user != null)
-                {
-                    var originalRefreshToken = _jwtTokenHandler.GenerateRefreshToken();
-                    var hashedRefreshToken = _jwtTokenHandler.HashRefreshToken(originalRefreshToken);
-                    user.RefreshToken = hashedRefreshToken;
-                    user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
-                    var userRoles = await _userManager.GetRolesAsync(user);
-                    await _userManager.UpdateAsync(user);
-                    var token = _jwtTokenHandler.GenerateJwtToken(user, userRoles.First());
+                var originalRefreshToken = _jwtTokenHandler.GenerateRefreshToken();
+                var hashedRefreshToken = _jwtTokenHandler.HashRefreshToken(originalRefreshToken);
+                user.RefreshToken = hashedRefreshToken;
+                user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+                var userRoles = await _userManager.GetRolesAsync(user);
+                await _userManager.UpdateAsync(user);
+                var token = _jwtTokenHandler.GenerateJwtToken(user, userRoles.First());
 
-                    return Ok(
-
-                        new SecurityResponse
-                        {
-                            User = user,
-                            Token = token,
-                            RefreshToken = originalRefreshToken
-                        });
-
-                }
+                return Ok(
+                    new SecurityResponse
+                    {
+                        User = user,
+                        Token = token,
+                        RefreshToken = originalRefreshToken
+                    });
             }
-            return BadRequest(request);
+            
+            return BadRequest("Invalid login attempt.");
         }
+
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
