@@ -50,7 +50,7 @@
           "Port": 8080
         }
       ],
-      "DownstreamPathTemplate": "/api/auth/validate"
+      "DownstreamPathTemplate": "/api/auth/search"
     },
     {
       "UpstreamPathTemplate": "/api/auth/refresh",
