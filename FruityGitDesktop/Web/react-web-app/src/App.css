@@ -89,7 +89,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: calc(100vh - 68px); /* Subtract navbar height */
+  min-height: calc(100vh - 68px);
+  /* Subtract navbar height */
   padding: 20px;
 }
 
@@ -547,12 +548,12 @@
   .file-browser {
     flex-direction: column;
   }
-  
+
   .file-list,
   .file-content {
     min-width: 100%;
   }
-  
+
   .history-columns {
     flex-direction: column;
   }
@@ -665,4 +666,74 @@
   color: #c9d1d9;
 }
 
-/* Make sure the navbar has proper flex layout */
+/* Add to your CSS file */
+.tabs {
+  display: flex;
+  margin-bottom: 1rem;
+}
+
+.tab-button {
+  padding: 0.5rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.tab-button.active {
+  border-bottom-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.tab-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.search-results-container {
+  margin-top: 1rem;
+}
+
+.user-list {
+  list-style: none;
+  padding: 0;
+}
+
+.user-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-weight: 500;
+}
+
+.user-email {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.btn-view-profile {
+  padding: 0.5rem 1rem;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.no-results {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+}

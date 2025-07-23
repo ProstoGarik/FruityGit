@@ -41,6 +41,18 @@
       "DownstreamPathTemplate": "/api/auth/validate"
     },
     {
+      "UpstreamPathTemplate": "/api/auth/search",
+      "UpstreamHttpMethod": ["Get"],
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "auth-api",
+          "Port": 8080
+        }
+      ],
+      "DownstreamPathTemplate": "/api/auth/validate"
+    },
+    {
       "UpstreamPathTemplate": "/api/auth/refresh",
       "UpstreamHttpMethod": ["Post"],
       "DownstreamScheme": "http",
