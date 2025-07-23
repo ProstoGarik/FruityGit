@@ -173,16 +173,16 @@ namespace AuthAPI.Controllers
         }
         
         [HttpGet("search")]
-        public async Task<IActionResult> SearchUsers([FromQuery] string query)
+        public async Task<ActionResult<IEnumerable<UserSearchResult>>> SearchUsers([FromQuery] string query)
         {
-            if (string.IsNullOrWhiteSpace(query))
+            if (string.IsNullOrWhiteSpace(query) || query.Length < 3)
             {
-                return BadRequest("Search query cannot be empty");
+                return BadRequest("Search query must be at least 3 characters long");
             }
 
-            // Search by username or email
             var users = _userManager.Users
                 .Where(u => u.UserName.Contains(query) || u.Email.Contains(query))
+                .Take(10)
                 .Select(u => new UserSearchResult
                 {
                     Id = u.Id,
