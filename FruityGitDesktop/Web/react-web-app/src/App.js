@@ -31,6 +31,8 @@ function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [activeTab, setActiveTab] = useState('repositories'); // 'repositories' or 'search'
   const [isSearching, setIsSearching] = useState(false);
+  const [viewedUserRepos, setViewedUserRepos] = useState([]);
+  const [viewedUserId, setViewedUserId] = useState(null);
 
   // Get access token from localStorage
   const getAccessToken = () => localStorage.getItem('accessToken');
@@ -512,6 +514,41 @@ function App() {
     }
   };
 
+  const fetchPublicRepositories = async (userId) => {
+    setIsLoadingRepos(true);
+    try {
+      const response = await fetchWithAuth(
+        `${serverPath}/api/git/repositories`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            Id: userId,
+            Name: '',
+            Email: ''
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Error getting public repositories');
+      }
+
+      const data = await response.json();
+      setViewedUserRepos(data.Repositories || []);
+      setViewedUserId(userId);
+      return data.Repositories || [];
+    } catch (error) {
+      console.error('Error fetching public repositories:', error);
+      setError(error.message);
+      return [];
+    } finally {
+      setIsLoadingRepos(false);
+    }
+  };
+
   const processCommits = (commitHistory) => {
     return commitHistory.map((commit) => {
       const message = commit.Message || commit.message || '';
@@ -675,32 +712,60 @@ function App() {
             {/* Conditional rendering */}
             {activeTab === 'search' ? (
               <div className="search-results-container">
-                <h3>Search Results for "{searchQuery}"</h3>
+                <h3>
+                  {viewedUserId
+                    ? `Public Repositories for ${searchResults.find(u => u.id === viewedUserId)?.userName || 'User'}`
+                    : `Search Results for "${searchQuery}"`}
+                </h3>
 
-                {isSearching ? (
-                  <div className="loading">Searching users...</div>
-                ) : searchResults.length > 0 ? (
-                  <ul className="user-list">
-                    {searchResults.map((user) => (
-                      <li key={user.Id} className="user-item">
-                        <div className="user-info">
-                          <span className="user-name">{user.userName}</span>
-                          <span className="user-email">{user.email}</span>
-                        </div>
-                        <button
-                          className="btn btn-view-profile"
-                          onClick={() => {
-                            
-                            console.log('View profile:', user.Id);
-                          }}
-                        >
-                          View Profile
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                {viewedUserId ? (
+                  isLoadingRepos ? (
+                    <div className="loading">Loading repositories...</div>
+                  ) : viewedUserRepos.length > 0 ? (
+                    <ul className="repository-list">
+                      {viewedUserRepos.map((repo, index) => (
+                        <li key={index} className="repository-item">
+                          <div
+                            className="repo-clickable-area"
+                            onClick={() => toggleRepoExpand(repo)}
+                          >
+                            <div className="repo-header">
+                              <span className="repo-name">{repo}</span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="no-repositories">No public repositories found</div>
+                  )
                 ) : (
-                  <div className="no-results">No users found matching your search</div>
+                  <>
+                    {isSearching ? (
+                      <div className="loading">Searching users...</div>
+                    ) : searchResults.length > 0 ? (
+                      <ul className="user-list">
+                        {searchResults.map((user) => (
+                          <li key={user.id} className="user-item">
+                            <div className="user-info">
+                              <span className="user-name">{user.userName}</span>
+                              <span className="user-email">{user.email}</span>
+                            </div>
+                            <button
+                              className="btn btn-view-profile"
+                              onClick={async () => {
+                                await fetchPublicRepositories(user.id);
+                              }}
+                            >
+                              View Profile
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="no-results">No users found matching your search</div>
+                    )}
+                  </>
                 )}
               </div>
             ) : isLoadingRepos ? (
@@ -1035,6 +1100,17 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+      {viewedUserId && (
+        <button
+          className="btn btn-back"
+          onClick={() => {
+            setViewedUserId(null);
+            setViewedUserRepos([]);
+          }}
+        >
+          ← Back to Search Results
+        </button>
       )}
     </div>
   );
