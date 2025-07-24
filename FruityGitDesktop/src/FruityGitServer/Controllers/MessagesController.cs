@@ -8,25 +8,39 @@ using System.IO;
 using System.Threading.Tasks;
 using System.IO.Compression;
 using System.Linq;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using EntitiesLibrary.Security;
+using JwtAuthenticationManager;
 
 [ApiController]
 [Route("api/git")]
+[Authorize]
 public class GitController : ControllerBase
 {
     private readonly string _reposRootPath;
     private readonly ILogger<GitController> _logger;
     private readonly DataContext _context;
+    private readonly UserManager<User> _userManager;
     private const int MaxFileSize = 100 * 1024 * 1024; // 100MB
 
     public GitController(
         IWebHostEnvironment env, 
         ILogger<GitController> logger,
-        DataContext context)
+        DataContext context,
+        UserManager<User> userManager)
     {
         _reposRootPath = Path.Combine(env.ContentRootPath, "ReposFolder");
         _logger = logger;
         _context = context;
+        _userManager = userManager;
         Directory.CreateDirectory(_reposRootPath);
+    }
+
+    private async Task<User> GetCurrentUserAsync()
+    {
+        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        return await _userManager.FindByIdAsync(userId);
     }
 
     [HttpPost("{repoName}/init")]
@@ -34,9 +48,10 @@ public class GitController : ControllerBase
     {
         try
         {
-            if (request == null || string.IsNullOrEmpty(request.UserId))
+            var currentUser = await GetCurrentUserAsync();
+            if (currentUser == null)
             {
-                return BadRequest("User information is required");
+                return Unauthorized();
             }
 
             if (!IsValidRepoName(repoName))
@@ -50,7 +65,7 @@ public class GitController : ControllerBase
 
             // Check if this user already has a repository with this name
             var userRepoExists = await _context.Repositories
-                .AnyAsync(r => r.Name == repoName && r.AuthorId == request.UserId);
+                .AnyAsync(r => r.Name == repoName && r.AuthorId == currentUser.Id);
                 
             if (userRepoExists)
             {
@@ -75,7 +90,7 @@ public class GitController : ControllerBase
             {
                 Name = repoName,
                 DirectoryPath = repoPath,
-                AuthorId = request.UserId,
+                AuthorId = currentUser.Id,
                 IsPrivate = request.IsPrivate,
                 CreatedAt = DateTime.UtcNow
             };
@@ -103,21 +118,22 @@ public class GitController : ControllerBase
     {
         try
         {
-            _logger.LogInformation($"Commiting for user: {request.UserInfo.Name}");
+            var currentUser = await GetCurrentUserAsync();
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            _logger.LogInformation($"Commiting for user: {currentUser.UserName}");
             _logger.LogInformation($"Commiting for repo: {repoName}");
             _logger.LogInformation($"Commiting with summary: {request.Summary}");
-
-            if (request?.UserInfo == null || string.IsNullOrEmpty(request.UserInfo.Id))
-            {
-                return BadRequest("Complete user information is required");
-            }
 
             if (!IsValidRepoName(repoName))
             {
                 return BadRequest("Invalid repository name");
             }
 
-            var accessCheck = await CheckRepositoryAccess(repoName, request.UserInfo.Id);
+            var accessCheck = await CheckRepositoryAccess(repoName, currentUser.Id);
             if (accessCheck != null) return accessCheck;
 
             if (request.File == null || request.File.Length == 0)
@@ -149,7 +165,7 @@ public class GitController : ControllerBase
                 Commands.Stage(repo, filePath);
 
                 var commitMessage = $"{request.Summary} _summEnd_ {request.Description}";
-                var signature = new Signature(request.UserInfo.Name, request.UserInfo.Email, DateTimeOffset.Now);
+                var signature = new Signature(currentUser.UserName, currentUser.Email, DateTimeOffset.Now);
                 repo.Commit(commitMessage, signature, signature);
 
                 return Ok(new 
@@ -171,20 +187,21 @@ public class GitController : ControllerBase
         }
     }
 
-    [HttpPost("repositories")]
-    public async Task<IActionResult> GetRepositories([FromBody] UserInfoDto userInfo)
+    [HttpGet("repositories")]
+    public async Task<IActionResult> GetRepositories()
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            var currentUser = await GetCurrentUserAsync();
+            if (currentUser == null)
             {
-                return BadRequest("User information is required");
+                return Unauthorized();
             }
 
-            _logger.LogInformation($"Searching repositories for UserId: {userInfo.Id}");
+            _logger.LogInformation($"Searching repositories for UserId: {currentUser.Id}");
 
             var dbRepos = await _context.Repositories
-                .Where(r => !r.IsPrivate || r.AuthorId == userInfo.Id)
+                .Where(r => !r.IsPrivate || r.AuthorId == currentUser.Id)
                 .Select(r => r.Name)
                 .ToListAsync();
 
@@ -216,14 +233,15 @@ public class GitController : ControllerBase
         }
     }
 
-    [HttpPost("{repoName}/history")]
-    public async Task<IActionResult> GetHistory(string repoName, [FromBody] UserInfoDto userInfo)
+    [HttpGet("{repoName}/history")]
+    public async Task<IActionResult> GetHistory(string repoName)
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            var currentUser = await GetCurrentUserAsync();
+            if (currentUser == null)
             {
-                return BadRequest("User information is required");
+                return Unauthorized();
             }
 
             if (!IsValidRepoName(repoName))
@@ -231,7 +249,7 @@ public class GitController : ControllerBase
                 return BadRequest("Invalid repository name");
             }
 
-            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
+            var accessCheck = await CheckRepositoryAccess(repoName, currentUser.Id);
             if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
@@ -269,14 +287,15 @@ public class GitController : ControllerBase
         }
     }
 
-    [HttpPost("{repoName}/delete")]
-    public async Task<IActionResult> DeleteRepository(string repoName, [FromBody] UserInfoDto userInfo)
+    [HttpDelete("{repoName}")]
+    public async Task<IActionResult> DeleteRepository(string repoName)
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            var currentUser = await GetCurrentUserAsync();
+            if (currentUser == null)
             {
-                return BadRequest("User information is required");
+                return Unauthorized();
             }
 
             if (!IsValidRepoName(repoName))
@@ -285,7 +304,7 @@ public class GitController : ControllerBase
             }
 
             var repository = await _context.Repositories
-                .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorId == userInfo.Id);
+                .FirstOrDefaultAsync(r => r.Name == repoName && r.AuthorId == currentUser.Id);
                 
             if (repository == null)
             {
@@ -324,15 +343,16 @@ public class GitController : ControllerBase
         }
     }
 
-    [HttpPost("{repoName}/download")]
-    public async Task<IActionResult> DownloadRepository(string repoName, [FromBody] UserInfoDto userInfo)
+    [HttpGet("{repoName}/download")]
+    public async Task<IActionResult> DownloadRepository(string repoName)
     {
         string zipPath = null;
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            var currentUser = await GetCurrentUserAsync();
+            if (currentUser == null)
             {
-                return BadRequest("User information is required");
+                return Unauthorized();
             }
 
             if (!IsValidRepoName(repoName))
@@ -340,7 +360,7 @@ public class GitController : ControllerBase
                 return BadRequest("Invalid repository name");
             }
 
-            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
+            var accessCheck = await CheckRepositoryAccess(repoName, currentUser.Id);
             if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
@@ -378,14 +398,15 @@ public class GitController : ControllerBase
         }
     }
 
-    [HttpPost("{repoName}/files")]
-    public async Task<IActionResult> GetRepositoryFiles(string repoName, [FromBody] UserInfoDto userInfo)
+    [HttpGet("{repoName}/files")]
+    public async Task<IActionResult> GetRepositoryFiles(string repoName)
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            var currentUser = await GetCurrentUserAsync();
+            if (currentUser == null)
             {
-                return BadRequest("User information is required");
+                return Unauthorized();
             }
 
             if (!IsValidRepoName(repoName))
@@ -393,7 +414,7 @@ public class GitController : ControllerBase
                 return BadRequest("Invalid repository name");
             }
 
-            var accessCheck = await CheckRepositoryAccess(repoName, userInfo.Id);
+            var accessCheck = await CheckRepositoryAccess(repoName, currentUser.Id);
             if (accessCheck != null) return accessCheck;
 
             var repoPath = Path.Combine(_reposRootPath, repoName);
@@ -502,18 +523,9 @@ public class CommitRequestDto
     public IFormFile File { get; set; }
     public string Summary { get; set; }
     public string Description { get; set; }
-    public UserInfoDto UserInfo { get; set; }
 }
-
-public class UserInfoDto
-    {
-        public string Id { get; set; }
-        public string Name { get; set; }
-        public string Email { get; set; }
-    }
 
 public class RepositoryInitRequest
 {
     public bool IsPrivate { get; set; }
-    public string UserId { get; set; }
 }

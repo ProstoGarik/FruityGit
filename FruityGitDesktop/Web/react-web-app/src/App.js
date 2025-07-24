@@ -41,31 +41,46 @@ function App() {
   const fetchWithAuth = async (url, options = {}, isRetry = false) => {
     const accessToken = getAccessToken();
 
-    const isFormData = options.body instanceof FormData;
-    const defaultHeaders = {
-      ...(!isFormData && { 'Content-Type': 'application/json' }),
-      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
-    };
-
+    // Default headers
     const headers = {
-      ...defaultHeaders,
+      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+      ...(!(options.body instanceof FormData) && { 'Content-Type': 'application/json' }),
       ...options.headers
     };
 
-    let response = await fetch(url, { ...options, headers });
+    // If body exists and is an object (not FormData), stringify it
+    const body = options.body && !(options.body instanceof FormData)
+      ? JSON.stringify(options.body)
+      : options.body;
 
-    if (response.status === 401 && !isRetry) {
-      const newToken = await refreshAuthToken();
-      if (newToken) {
-        headers.Authorization = `Bearer ${newToken}`;
-        return fetchWithAuth(url, { ...options, headers }, true);
-      } else {
-        handleLogout();
-        throw new Error('Session expired. Please login again.');
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        body
+      });
+
+      if (response.status === 401 && !isRetry) {
+        const newToken = await refreshAuthToken();
+        if (newToken) {
+          headers.Authorization = `Bearer ${newToken}`;
+          return fetchWithAuth(url, { ...options, headers }, true);
+        } else {
+          handleLogout();
+          throw new Error('Session expired. Please login again.');
+        }
       }
-    }
 
-    return response;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Request failed with status ${response.status}`);
+      }
+
+      return response;
+    } catch (error) {
+      console.error('API request error:', error);
+      throw error;
+    }
   };
 
   const refreshAuthToken = async () => {
@@ -104,20 +119,8 @@ function App() {
 
     try {
       const response = await fetchWithAuth(
-        `${serverPath}/api/git/${encodeURIComponent(repoName)}/files`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            Id: user.id,
-            Name: user.name,
-            Email: user.email
-          }),
-        }
+        `${serverPath}/api/git/${encodeURIComponent(repoName)}/files`
       );
-
-      if (!response.ok) {
-        throw new Error('Error getting repository files');
-      }
 
       const data = await response.json();
       setFiles(data.files || []);
@@ -140,18 +143,11 @@ function App() {
         `${serverPath}/api/git/${encodeURIComponent(repoName)}/file`,
         {
           method: 'POST',
-          body: JSON.stringify({
-            Id: user.id,
-            Name: user.name,
-            Email: user.email,
+          body: {
             Path: filePath
-          }),
+          }
         }
       );
-
-      if (!response.ok) {
-        throw new Error('Error getting file content');
-      }
 
       const data = await response.text();
       setFileContent(data);
@@ -168,18 +164,13 @@ function App() {
     e.preventDefault();
     setError('');
 
-    if (!user || !user.id) {
+    if (!user) {
       setError('User information is incomplete');
       return;
     }
 
     if (!repoName.trim()) {
       setError('Repository name is required');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(repoName)) {
-      setError('Repository name must be 1-100 characters (letters, numbers, hyphens, underscores)');
       return;
     }
 
@@ -190,25 +181,16 @@ function App() {
         `${serverPath}/api/git/${encodeURIComponent(repoName)}/init`,
         {
           method: 'POST',
-          body: JSON.stringify({
-            IsPrivate: isPrivate,
-            UserId: user.id
-          }),
+          body: {
+            IsPrivate: isPrivate
+          }
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        const errorMessage = errorData.message ||
-          (response.status === 400 ? 'Repository already exists' : 'Failed to create repository');
-        throw new Error(errorMessage);
-      }
-
+      const data = await response.json();
       setRepoName('');
       setIsPrivate(false);
       setShowCreateRepo(false);
-
-      // Refresh the repository list
       await handleRefreshRepo();
     } catch (err) {
       setError(err.message);
@@ -230,25 +212,8 @@ function App() {
     try {
       // Fetch commit history
       const historyResponse = await fetchWithAuth(
-        `${serverPath}/api/git/${encodeURIComponent(repoName)}/history`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            Id: user.id,
-            Name: user.name,
-            Email: user.email
-          }),
-        }
+        `${serverPath}/api/git/${encodeURIComponent(repoName)}/history`
       );
-
-      if (historyResponse.status === 401) {
-        setError("You don't have access to this private repository");
-        return;
-      }
-
-      if (!historyResponse.ok) {
-        throw new Error('Error getting commit history');
-      }
 
       const historyData = await historyResponse.json();
       const commitHistory = historyData.commits || [];
@@ -307,28 +272,14 @@ function App() {
     setIsLoadingRepos(true);
     try {
       const response = await fetchWithAuth(
-        `${serverPath}/api/git/repositories`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            Id: user.id,
-            Name: user.name,
-            Email: user.email
-          }),
-        }
+        `${serverPath}/api/git/repositories`
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error getting repositories');
-      }
-
       const data = await response.json();
-      // Transform the array of strings into objects with the expected properties
       const formattedRepos = data.repositories.map(repoName => ({
         name: repoName,
-        description: '', // Default empty description
-        updatedAt: new Date().toISOString() // Use current date as fallback
+        description: '',
+        updatedAt: new Date().toISOString()
       }));
       setRepos(formattedRepos);
     } catch (error) {
@@ -396,15 +347,8 @@ function App() {
   const handleLogout = async () => {
     try {
       // Call backend logout endpoint if needed
-      await fetch(`${serverPath}/api/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAccessToken()}`
-        },
-        body: JSON.stringify({
-          Email: user?.email
-        })
+      await fetchWithAuth(`${serverPath}/api/auth/logout`, {
+        method: 'POST'
       });
 
       // Clear local storage
@@ -498,10 +442,6 @@ function App() {
       const response = await fetchWithAuth(
         `${serverPath}/api/auth/search?query=${encodeURIComponent(searchQuery)}`
       );
-
-      if (!response.ok) {
-        throw new Error('Search failed');
-      }
 
       const data = await response.json();
       setSearchResults(data);
