@@ -684,13 +684,13 @@ function App() {
                     {searchResults.map((user) => (
                       <li key={user.Id} className="user-item">
                         <div className="user-info">
-                          <span className="user-name">{user.UserName}</span>
-                          <span className="user-email">{user.Email}</span>
+                          <span className="user-name">{user.userName}</span>
+                          <span className="user-email">{user.email}</span>
                         </div>
                         <button
                           className="btn btn-view-profile"
                           onClick={() => {
-                            // You can implement profile viewing functionality here
+                            
                             console.log('View profile:', user.Id);
                           }}
                         >
@@ -709,7 +709,25 @@ function App() {
               <ul className="repository-list">
                 {repos.map((repo, index) => (
                   <li key={index} className="repository-item">
-                    {/* ... your existing repository item JSX ... */}
+                    <div
+                      className="repo-clickable-area"
+                      onClick={() => toggleRepoExpand(repo.name)}
+                    >
+                      <div className="repo-header">
+                        <span className="repo-name">{repo.name}</span>
+                        <span className="repo-toggle-icon">
+                          {expandedRepos[repo.name] ? '▼' : '▶'}
+                        </span>
+                      </div>
+                      {expandedRepos[repo.name] && (
+                        <div className="repo-details">
+                          <div className="repo-description">{repo.description || 'No description'}</div>
+                          <div className="repo-meta">
+                            <span>Last updated: {new Date(repo.updatedAt).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

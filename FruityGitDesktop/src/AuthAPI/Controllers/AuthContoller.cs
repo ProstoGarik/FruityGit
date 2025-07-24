@@ -64,6 +64,7 @@ namespace AuthAPI.Controllers
             }
             return BadRequest("Invalid login attempt.");
         }
+        
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
