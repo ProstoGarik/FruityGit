@@ -702,12 +702,12 @@ function App() {
             {activeTab === 'search' ? (
               <div className="search-results-container">
                 <h3>
-                  {viewedUserId
-                    ? `Public Repositories for ${searchResults.find(u => u.id === viewedUserId)?.userName || 'User'}`
+                  {viewedUserEmail
+                    ? `Public Repositories for ${searchResults.find(u => u.id === viewedUserEmail)?.userName || 'User'}`
                     : `Search Results for "${searchQuery}"`}
                 </h3>
 
-                {viewedUserId ? (
+                {viewedUserEmail ? (
                   isLoadingRepos ? (
                     <div className="loading">Loading repositories...</div>
                   ) : viewedUserRepos.length > 0 ? (
