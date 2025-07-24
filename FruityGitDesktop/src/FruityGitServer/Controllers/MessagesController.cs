@@ -76,6 +76,8 @@ public class GitController : ControllerBase
                 Name = repoName,
                 DirectoryPath = repoPath,
                 AuthorId = request.UserId,
+                AuthorName = request.UserName,
+                AuthorEmail = request.UserEmail,
                 IsPrivate = request.IsPrivate,
                 CreatedAt = DateTime.UtcNow
             };
@@ -176,21 +178,31 @@ public class GitController : ControllerBase
     {
         try
         {
-            if (userInfo == null || string.IsNullOrEmpty(userInfo.Id))
+            // Validate input parameters
+            if (userInfo == null || 
+                (string.IsNullOrEmpty(userInfo.Id) && string.IsNullOrEmpty(userInfo.Email)))
             {
-                return BadRequest("User information is required");
+                return BadRequest("Either User Id or Email must be provided");
             }
 
-            _logger.LogInformation($"Searching repositories for UserId: {userInfo.Id}");
+            IQueryable<Repository> query = _context.Repositories;
 
-            var dbRepos = await _context.Repositories
-                .Where(r => !r.IsPrivate || r.AuthorId == userInfo.Id)
-                .Select(r => r.Name)
-                .ToListAsync();
+            if (!string.IsNullOrEmpty(userInfo.Id))
+            {
+                _logger.LogInformation($"Searching repositories for UserId: {userInfo.Id}");
+                query = query.Where(r => r.AuthorId == userInfo.Id);
+            }
+            else if (!string.IsNullOrEmpty(userInfo.Email))
+            {
+                _logger.LogInformation($"Searching public repositories for Email: {userInfo.Email}");
+                query = query.Where(r => r.AuthorEmail == userInfo.Email && !r.IsPrivate);
+            }
+
+            var dbRepos = await query.Select(r => r.Name).ToListAsync();
 
             if (!Directory.Exists(_reposRootPath))
             {
-                return Ok(new List<string>());
+                return Ok(new { Count = 0, Repositories = new List<string>() });
             }
 
             var validRepos = Directory.GetDirectories(_reposRootPath)
@@ -516,4 +528,6 @@ public class RepositoryInitRequest
 {
     public bool IsPrivate { get; set; }
     public string UserId { get; set; }
+    public string UserName { get; set; }
+    public string UserEmail { get; set; }
 }

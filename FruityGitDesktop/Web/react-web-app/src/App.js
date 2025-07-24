@@ -32,7 +32,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('repositories'); // 'repositories' or 'search'
   const [isSearching, setIsSearching] = useState(false);
   const [viewedUserRepos, setViewedUserRepos] = useState([]);
-  const [viewedUserId, setViewedUserId] = useState(null);
+  const [viewedUserEmail, setViewedUserEmail] = useState(null);
 
   // Get access token from localStorage
   const getAccessToken = () => localStorage.getItem('accessToken');
@@ -514,36 +514,25 @@ function App() {
     }
   };
 
-  const fetchPublicRepositories = async (userId) => {
+  const fetchPublicRepositories = async (userEmail) => {
     setIsLoadingRepos(true);
     try {
       const response = await fetchWithAuth(
         `${serverPath}/api/git/repositories`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            Id: userId,
-            Name: '',
-            Email: ''
-          }),
+          body: {
+            Email: userEmail
+          }
         }
       );
 
-      if (!response.ok) {
-        throw new Error('Error getting public repositories');
-      }
-
       const data = await response.json();
       setViewedUserRepos(data.Repositories || []);
-      setViewedUserId(userId);
-      return data.Repositories || [];
+      setViewedUserEmail(userEmail);
     } catch (error) {
       console.error('Error fetching public repositories:', error);
       setError(error.message);
-      return [];
     } finally {
       setIsLoadingRepos(false);
     }
@@ -754,7 +743,7 @@ function App() {
                             <button
                               className="btn btn-view-profile"
                               onClick={async () => {
-                                await fetchPublicRepositories(user.id);
+                                await fetchPublicRepositories(user.email);
                               }}
                             >
                               View Profile
@@ -1101,16 +1090,12 @@ function App() {
           </div>
         </div>
       )}
-      {viewedUserId && (
-        <button
-          className="btn btn-back"
-          onClick={() => {
-            setViewedUserId(null);
-            setViewedUserRepos([]);
-          }}
-        >
-          ← Back to Search Results
-        </button>
+      {viewedUserEmail ? (
+        <h3>
+          Public Repositories for {searchResults.find(u => u.email === viewedUserEmail)?.userName || 'User'}
+        </h3>
+      ) : (
+        <h3>Search Results for "{searchQuery}"</h3>
       )}
     </div>
   );
