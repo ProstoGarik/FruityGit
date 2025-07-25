@@ -33,6 +33,7 @@ function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [viewedUserRepos, setViewedUserRepos] = useState([]);
   const [viewedUserEmail, setViewedUserEmail] = useState(null);
+  const [viewedUser, setViewedUser] = useState(null);
 
   // Get access token from localStorage
   const getAccessToken = () => localStorage.getItem('accessToken');
@@ -514,22 +515,34 @@ function App() {
     }
   };
 
-  const fetchPublicRepositories = async (userEmail) => {
+  const fetchPublicRepositories = async (userInfo) => {
     setIsLoadingRepos(true);
     try {
       const response = await fetchWithAuth(
         `${serverPath}/api/git/repositories`,
         {
           method: 'POST',
-          body: {
-            Email: userEmail
-          }
+          body: JSON.stringify({
+            Id: '',
+            Name: '',
+            Email: userInfo.email
+          }),
         }
       );
 
+      if (!response.ok) {
+        throw new Error('Error getting public repositories');
+      }
+
       const data = await response.json();
-      setViewedUserRepos(data.Repositories || []);
-      setViewedUserEmail(userEmail);
+      const formattedRepos = data.repositories.map(repoName => ({
+        name: repoName,
+        description: '',
+        updatedAt: new Date().toISOString()
+      }));
+      setViewedUserRepos(formattedRepos);
+      setViewedUser(userInfo);
+      setViewedUserEmail(userInfo.email);
     } catch (error) {
       console.error('Error fetching public repositories:', error);
       setError(error.message);
@@ -537,6 +550,7 @@ function App() {
       setIsLoadingRepos(false);
     }
   };
+
 
   const processCommits = (commitHistory) => {
     return commitHistory.map((commit) => {
@@ -716,11 +730,22 @@ function App() {
                         <li key={index} className="repository-item">
                           <div
                             className="repo-clickable-area"
-                            onClick={() => toggleRepoExpand(repo)}
+                            onClick={() => toggleRepoExpand(repo.name)}
                           >
                             <div className="repo-header">
-                              <span className="repo-name">{repo}</span>
+                              <span className="repo-name">{repo.name}</span>
+                              <span className="repo-toggle-icon">
+                                {expandedRepos[repo.name] ? '▼' : '▶'}
+                              </span>
                             </div>
+                            {expandedRepos[repo.name] && (
+                              <div className="repo-details">
+                                <div className="repo-description">{repo.description || 'No description'}</div>
+                                <div className="repo-meta">
+                                  <span>Last updated: {new Date(repo.updatedAt).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </li>
                       ))}
@@ -734,8 +759,8 @@ function App() {
                       <div className="loading">Searching users...</div>
                     ) : searchResults.length > 0 ? (
                       <ul className="user-list">
-                        {searchResults.map((user) => (
-                          <li className="user-item">
+                        {searchResults.map((user, index) => (
+                          <li key={index} className="user-item">
                             <div className="user-info">
                               <span className="user-name">{user.userName}</span>
                               <span className="user-email">{user.email}</span>
@@ -743,7 +768,10 @@ function App() {
                             <button
                               className="btn btn-view-profile"
                               onClick={async () => {
-                                await fetchPublicRepositories(user.email);
+                                await fetchPublicRepositories({
+                                  email: user.email,
+                                  userName: user.userName,
+                                });
                               }}
                             >
                               View Profile
