@@ -36,8 +36,8 @@ function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
     e.preventDefault();
     setError('');
 
-    if (!user || !user.id) {
-      setError('User information is incomplete');
+    if (!user || !user.id || !user.name || !user.email) {
+      setError('Complete user information is required');
       return;
     }
 
@@ -63,7 +63,9 @@ function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
           },
           body: JSON.stringify({
             IsPrivate: isPrivate,
-            UserId: user.id
+            UserId: user.id,
+            UserName: user.name,
+            UserEmail: user.email
           }),
         }
       );

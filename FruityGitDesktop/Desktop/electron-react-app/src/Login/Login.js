@@ -44,7 +44,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
 
             onClose({
                 id: data.user.id, // Changed from data.User.Id to data.user.id
-                name: data.user.userName || email, // Changed from data.User.UserName
+                name: data.user.userName, // Changed from data.User.UserName
                 email: email,
                 roles: ['User'] // Assuming default role since it's not in the response
             });

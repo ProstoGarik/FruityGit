@@ -3,7 +3,7 @@ import './App.css';
 import flpIcon from './img/FruityLoopsLogo.png'; // Adjust the path to your actual PNG file
 
 function App() {
-  const serverPath = "http://192.168.135.73:8081";
+  const serverPath = "http://192.168.1.54:8081";
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -461,7 +461,7 @@ function App() {
       // Store tokens and user info - NOTE THE UPPERCASE PROPERTIES
       localStorage.setItem('accessToken', data.Token);
       localStorage.setItem('refreshToken', data.RefreshToken);
-      localStorage.setItem('userId', data.User.Id);
+      localStorage.setItem('userId', data.User.id);
       localStorage.setItem('userName', data.User.UserName);
       localStorage.setItem('userEmail', data.User.Email);
 
@@ -703,7 +703,7 @@ function App() {
               <div className="search-results-container">
                 <h3>
                   {viewedUserEmail
-                    ? `Public Repositories for ${searchResults.find(u => u.id === viewedUserEmail)?.userName || 'User'}`
+                    ? `Public Repositories for ${searchResults.find(u => u.email === viewedUserEmail)?.userName || 'User'}`
                     : `Search Results for "${searchQuery}"`}
                 </h3>
 
@@ -735,7 +735,7 @@ function App() {
                     ) : searchResults.length > 0 ? (
                       <ul className="user-list">
                         {searchResults.map((user) => (
-                          <li key={user.id} className="user-item">
+                          <li className="user-item">
                             <div className="user-info">
                               <span className="user-name">{user.userName}</span>
                               <span className="user-email">{user.email}</span>

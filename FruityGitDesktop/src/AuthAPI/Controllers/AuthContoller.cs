@@ -192,7 +192,6 @@ namespace AuthAPI.Controllers
                 .Take(10)
                 .Select(u => new UserSearchResult
                 {
-                    Id = u.Id,
                     UserName = u.UserName,
                     Email = u.Email
                 })
@@ -203,7 +202,6 @@ namespace AuthAPI.Controllers
 
         public class UserSearchResult
         {
-            public string Id { get; set; }
             public string UserName { get; set; }
             public string Email { get; set; }
         }
