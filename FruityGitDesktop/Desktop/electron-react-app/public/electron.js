@@ -1,9 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-
-
-const { execFile } = require('child_process');
-
+const fs = require('fs');
 
 
 function createWindow() {
@@ -27,31 +24,7 @@ function createWindow() {
   if (process.env.NODE_ENV === 'development') {
     win.webContents.openDevTools();
   }
-
-  // Add IPC handler for opening .flp file dialog
-  ipcMain.handle('open-flp-dialog', async () => {
-    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: 'Выберите .flp файл',
-      filters: [
-        { name: 'FL Studio Project', extensions: ['flp'] }
-      ],
-      properties: ['openFile']
-    });
-    if (canceled) return null;
-    return filePaths[0];
-  });
 }
-
-ipcMain.handle('read-file', async (event, filePath) => {
-  try {
-    const fs = require('fs').promises;
-    const content = await fs.readFile(filePath);
-    return content;
-  } catch (error) {
-    console.error('Error reading file:', error);
-    return null;
-  }
-});
 
 ipcMain.handle('extract-zip', async (event, zipPath, extractPath) => {
   return new Promise((resolve, reject) => {
@@ -65,10 +38,6 @@ ipcMain.handle('extract-zip', async (event, zipPath, extractPath) => {
       reject(error);
     }
   });
-});
-
-ipcMain.handle('get-app-path', () => {
-  return app.getAppPath();
 });
 
 ipcMain.handle('open-save-dialog', async (event, options) => {
@@ -95,6 +64,22 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+ipcMain.handle('open-flp-dialog', async () => {
+  const { filePaths } = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'FL Studio Projects', extensions: ['flp'] }]
+  });
+  return filePaths[0];
+});
+
+ipcMain.handle('get-app-path', () => {
+  return app.getAppPath();
+});
+
+ipcMain.handle('read-file', async (event, filePath) => {
+  return fs.readFileSync(filePath);
 });
 
 app.on('activate', () => {
@@ -128,3 +113,4 @@ if (!gotTheLock) {
     }
   })
 }
+

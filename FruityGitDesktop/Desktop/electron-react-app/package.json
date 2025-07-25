@@ -62,7 +62,7 @@
     "extraResources": [
       {
         "from": "resources/python-app/dist/flp_processor.exe",
-        "to": "resources/python-app/dist"
+        "to": "resources/python-app/dist/flp_processor.exe"
       }
     ]
   }

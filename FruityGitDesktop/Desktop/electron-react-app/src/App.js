@@ -1,4 +1,5 @@
 // src/App.js
+
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import LoginWindow from './Login/Login';
@@ -26,7 +27,8 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState(null);
   const [showCreateRepo, setShowCreateRepo] = useState(false);
-  
+
+
 
   const fetchWithAuth = async (url, options = {}, isRetry = false) => {
     const accessToken = getAccessToken();
@@ -110,6 +112,7 @@ function App() {
         const { spawn } = window.require('child_process');
         const appPath = await ipcRenderer.invoke('get-app-path');
 
+        // Path to your packaged Python executable
         const pythonScriptPath = path.join(
           appPath,
           'resources',
@@ -125,33 +128,50 @@ function App() {
           throw new Error(`FLP processor not found at: ${pythonScriptPath}`);
         }
 
-        const pythonProcess = spawn(pythonScriptPath, [filePath]);
+        return new Promise((resolve, reject) => {
+          const pythonProcess = spawn(pythonScriptPath, [filePath]);
 
-        pythonProcess.stdout.on('data', (data) => {
-          console.log(`Python stdout: ${data}`);
-        });
+          let output = '';
+          let errorOutput = '';
 
-        pythonProcess.stderr.on('data', (data) => {
-          console.error(`Python stderr: ${data}`);
-        });
+          pythonProcess.stdout.on('data', (data) => {
+            output += data.toString();
+            console.log(`Python stdout: ${data}`);
+          });
 
-        pythonProcess.on('close', (code) => {
-          if (code === 0) {
-            console.log('Python script completed successfully');
-            const zipPath = filePath.replace(/\.flp$/, '.zip');
-            setAttachedFile(zipPath);
-          } else {
-            console.error(`Python script exited with code ${code}`);
-            alert('Ошибка обработки FLP-файла');
-          }
+          pythonProcess.stderr.on('data', (data) => {
+            errorOutput += data.toString();
+            console.error(`Python stderr: ${data}`);
+          });
+
+          pythonProcess.on('close', (code) => {
+            if (code === 0) {
+              // The last line of output should be the zip path
+              const zipPath = output.trim().split('\n').pop();
+              if (zipPath && fs.existsSync(zipPath)) {
+                setAttachedFile(zipPath);
+                resolve(zipPath);
+              } else {
+                const err = new Error('Failed to create ZIP file');
+                console.error(err);
+                reject(err);
+              }
+            } else {
+              const err = new Error(`Python script failed: ${errorOutput}`);
+              console.error(err);
+              reject(err);
+            }
+          });
         });
       } else {
         // Direct attach mode
         setAttachedFile(filePath);
+        return filePath;
       }
     } catch (error) {
       console.error('Error processing FLP file:', error);
       alert(`Ошибка: ${error.message}`);
+      throw error;
     }
   };
 
