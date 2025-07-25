@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FruityGitServer.Migrations
 {
     /// <inheritdoc />
-    public partial class AddRepositoriesTable : Migration
+    public partial class AddRepositories : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -21,6 +21,8 @@ namespace FruityGitServer.Migrations
                     Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     DirectoryPath = table.Column<string>(type: "text", nullable: false),
                     AuthorId = table.Column<string>(type: "text", nullable: false),
+                    AuthorName = table.Column<string>(type: "text", nullable: false),
+                    AuthorEmail = table.Column<string>(type: "text", nullable: false),
                     IsPrivate = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "NOW()")
                 },

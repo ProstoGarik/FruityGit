@@ -11,8 +11,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FruityGitServer.Migrations
 {
     [DbContext(typeof(DataContext))]
-    [Migration("20250716162023_AddRepositoriesTable")]
-    partial class AddRepositoriesTable
+    [Migration("20250725161731_AddRepositories")]
+    partial class AddRepositories
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -32,7 +32,15 @@ namespace FruityGitServer.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AuthorEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("AuthorId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuthorName")
                         .IsRequired()
                         .HasColumnType("text");
 
