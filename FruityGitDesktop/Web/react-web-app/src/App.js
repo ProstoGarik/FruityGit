@@ -1117,13 +1117,6 @@ function App() {
           </div>
         </div>
       )}
-      {viewedUserEmail ? (
-        <h3>
-          Public Repositories for {searchResults.find(u => u.email === viewedUserEmail)?.userName || 'User'}
-        </h3>
-      ) : (
-        <h3>Search Results for "{searchQuery}"</h3>
-      )}
     </div>
   );
 }
