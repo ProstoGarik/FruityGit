@@ -3,7 +3,7 @@ import './App.css';
 import flpIcon from './img/FruityLoopsLogo.png'; // Adjust the path to your actual PNG file
 
 function App() {
-  const serverPath = "http://192.168.1.54:8081";
+  const serverPath = "http://192.168.135.73:8081";
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -459,18 +459,17 @@ function App() {
         throw new Error(data.message || 'Registration failed');
       }
 
-      // Store tokens and user info - NOTE THE UPPERCASE PROPERTIES
-      localStorage.setItem('accessToken', data.Token);
-      localStorage.setItem('refreshToken', data.RefreshToken);
-      localStorage.setItem('userId', data.User.id);
-      localStorage.setItem('userName', data.User.UserName);
-      localStorage.setItem('userEmail', data.User.Email);
+      localStorage.setItem('accessToken', data.token);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('userId', data.user.id);
+      localStorage.setItem('userName', data.user.userName);
+      localStorage.setItem('userEmail', data.user.email);
 
       // Set user state
       setUser({
-        id: data.User.Id,
-        name: data.User.UserName,
-        email: data.User.Email
+        id: data.user.id,
+        name: data.user.UserName,
+        email: data.user.Email
       });
 
       // Automatically fetch repositories after registration
