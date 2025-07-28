@@ -191,9 +191,14 @@ function App() {
         `${serverPath}/api/git/${encodeURIComponent(repoName)}/init`,
         {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
             IsPrivate: isPrivate,
-            UserId: user.id
+            UserId: user.id,
+            UserName: user.name,
+            UserEmail: user.email
           }),
         }
       );
@@ -605,12 +610,12 @@ function App() {
       {/* Navigation Bar */}
       <nav className="navbar">
         <div className="navbar-left">
+          <div className="logo">MyApp</div>
           <div className="nav-links">
             <a href="/">Explore</a>
           </div>
         </div>
 
-        {/* Added Search Bar in the middle */}
         <div className="navbar-center">
           <form className="search-container" onSubmit={handleSearch}>
             <input
@@ -711,7 +716,6 @@ function App() {
               </div>
             </div>
 
-            {/* Conditional rendering */}
             {activeTab === 'search' ? (
               <div className="search-results-container">
                 <h3>
@@ -726,7 +730,7 @@ function App() {
                   ) : viewedUserRepos.length > 0 ? (
                     <ul className="repository-list">
                       {viewedUserRepos.map((repo, index) => (
-                        <li key={index} className="repository-item">
+                        <li key={index} className={`repository-item ${expandedRepos[repo.name] ? 'expanded' : ''}`}>
                           <div
                             className="repo-clickable-area"
                             onClick={() => toggleRepoExpand(repo.name)}
@@ -789,7 +793,7 @@ function App() {
             ) : repos.length > 0 ? (
               <ul className="repository-list">
                 {repos.map((repo, index) => (
-                  <li key={index} className="repository-item">
+                  <li key={index} className={`repository-item ${expandedRepos[repo.name] ? 'expanded' : ''}`}>
                     <div
                       className="repo-clickable-area"
                       onClick={() => toggleRepoExpand(repo.name)}
@@ -824,7 +828,6 @@ function App() {
                 <div className="loading">Loading commit history...</div>
               ) : (
                 <div className="history-columns">
-                  {/* Commit List */}
                   <div className="commit-list">
                     <h4>Commits</h4>
                     {commits.length > 0 ? (
@@ -832,7 +835,7 @@ function App() {
                         {commits.map(commit => (
                           <li
                             key={commit.id}
-                            className={`commit-item ${expandedCommits[commit.id] ? 'selected' : ''}`}
+                            className={`commit-item ${selectedCommit && selectedCommit.id === commit.id ? 'selected' : ''}`}
                             onClick={() => handleCommitSelect(commit)}
                           >
                             <div className="commit-message">{commit.summary}</div>
@@ -850,11 +853,10 @@ function App() {
                     )}
                   </div>
 
-                  {/* Commit Details */}
                   <div className="commit-details">
                     <h4>Commit Details</h4>
-                    {selectedCommit && expandedCommits[selectedCommit.id] ? (
-                      <div className="commit-detail-content">
+                    {selectedCommit ? (
+                      <div className={`commit-detail-content ${selectedCommit ? 'visible' : ''}`}>
                         <div className="commit-header">
                           <p><strong>Commit ID:</strong> {selectedCommit.id}</p>
                           <p><strong>Author:</strong> {selectedCommit.author} &lt;{selectedCommit.email}&gt;</p>
@@ -896,7 +898,6 @@ function App() {
                   >
                     ↑ Up
                   </button>
-                  <span>{currentPath || 'Root'}</span>
                 </div>
               )}
 
@@ -1046,6 +1047,7 @@ function App() {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
+              <span className="modal-icon">📂</span>
               <h2>Create New Repository</h2>
               <button
                 className="close-button"
