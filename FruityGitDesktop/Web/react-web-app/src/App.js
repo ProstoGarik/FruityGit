@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import flpIcon from './img/FruityLoopsLogo.png'; // Adjust the path to your actual PNG file
+import flpIcon from './img/FruityLoopsLogo.png';
+import fruityGitIcon from './img/FruityGitLogo.png';
 
 function App() {
   const serverPath = "http://192.168.135.73:8081";
@@ -490,6 +491,8 @@ function App() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
+    setSelectedRepo(null);
+    setExpandedRepos({});
 
     if (searchQuery.length < 3) {
       setError('Search query must be at least 3 characters');
@@ -610,7 +613,7 @@ function App() {
       {/* Navigation Bar */}
       <nav className="navbar">
         <div className="navbar-left">
-          <div className="logo">MyApp</div>
+          <div className="logo"><img src={fruityGitIcon} alt="FruityGit" className="app-icon" /> </div>
           <div className="nav-links">
             <a href="/">Explore</a>
           </div>
@@ -681,13 +684,21 @@ function App() {
               <div className="tabs">
                 <button
                   className={`tab-button ${activeTab === 'repositories' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('repositories')}
+                  onClick={() => {
+                    setActiveTab('repositories');
+                    setExpandedRepos({});
+                    setSelectedRepo(null);
+                  }}
                 >
                   Your Repositories
                 </button>
                 <button
                   className={`tab-button ${activeTab === 'search' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('search')}
+                  onClick={() => {
+                    setActiveTab('search');
+                    setExpandedRepos({});
+                    setSelectedRepo(null);
+                  }}
                   disabled={searchResults.length === 0}
                 >
                   Search Results
