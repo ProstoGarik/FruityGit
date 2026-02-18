@@ -1,3 +1,7 @@
+using FruityGitServer.Context;
+using FruityGitServer.Middleware;
+using FruityGitServer.Repositories;
+using FruityGitServer.Services;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
@@ -17,6 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 RegisterDataSources(builder.Services);
+RegisterApplicationServices(builder.Services);
 
 var app = builder.Build();
 
@@ -28,30 +33,15 @@ if (app.Environment.IsDevelopment())
     app.UseDeveloperExceptionPage();
 }
 
-app.Use(async (context, next) =>
-{
-    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation($"Incoming request: {context.Request.Method} {context.Request.Path}");
-    try
-    {
-        await next();
-    }
-    catch (Exception ex)
-    {
-        if (app.Environment.IsDevelopment())
-            logger.LogError($"Error: {context.Request.Method} {context.Request.Path}: {ex.Message}");
-        throw;
-    }
-    finally
-    {
-        logger.LogInformation(
-            $"Request complete: {context.Request.Method} {context.Request.Path} [{context.Response.StatusCode}] ");
-    }
-});
+// Global exception handler must be first
+app.UseMiddleware<GlobalExceptionHandler>();
 
 app.UseRouting();
-app.UseAuthorization();
+
+// Fix middleware order: Authentication before Authorization
 app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
@@ -65,10 +55,18 @@ void RegisterDataSources(IServiceCollection services)
 
     var connectionString = $"Host={dbHost};Database={dbName};Username={dbUser};Password={dbPassword}";
 
-    Console.WriteLine(connectionString);
-
+    // Removed Console.WriteLine for security - connection string should not be logged
     services.AddDbContext<DataContext>(options =>
         options.UseNpgsql(connectionString));
+}
+
+void RegisterApplicationServices(IServiceCollection services)
+{
+    // Register repositories
+    services.AddScoped<IRepositoryRepository, RepositoryRepository>();
+    
+    // Register services
+    services.AddScoped<IGitService, GitService>();
 }
 
 async Task InitializeDataSources(WebApplication application)

@@ -1,5 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using FruityGitServer.Models;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+
+namespace FruityGitServer.Context;
 
 public class DataContext : DbContext
 {
@@ -10,7 +13,7 @@ public class DataContext : DbContext
         _logger = logger;
     }
     
-    public DbSet<Repository> Repositories { get; set; }
+    public DbSet<Repository> Repositories { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,17 +54,4 @@ public class DataContext : DbContext
             return false;
         }
     }
-}
-
-// Repository.cs
-public class Repository
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public string DirectoryPath { get; set; }
-    public string AuthorId { get; set; }
-    public string AuthorName { get; set; }
-    public string AuthorEmail { get; set; }
-    public bool IsPrivate { get; set; }
-    public DateTime CreatedAt { get; set; }
 }

@@ -39,6 +39,9 @@ var app = builder.Build();
 app.UseMetricServer(url: "/metrics");
 app.UseHttpMetrics();
 
+app.UseRouting();
+
+// Fix middleware order: Authentication before Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
