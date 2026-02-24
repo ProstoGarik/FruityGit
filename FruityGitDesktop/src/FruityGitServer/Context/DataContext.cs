@@ -1,10 +1,11 @@
-﻿using FruityGitServer.Models;
+using FruityGitServer.Models;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace FruityGitServer.Context;
 
-public class DataContext : DbContext
+public class DataContext : IdentityDbContext<User>
 {
     private readonly ILogger<DataContext> _logger;
 
@@ -12,11 +13,12 @@ public class DataContext : DbContext
     {
         _logger = logger;
     }
-    
+
     public DbSet<Repository> Repositories { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<Repository>(entity =>
         {
             entity.HasKey(r => r.Id);

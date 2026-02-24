@@ -1,11 +1,13 @@
 using FruityGitServer.DTOs;
 using FruityGitServer.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FruityGitServer.Controllers;
 
 [ApiController]
 [Route("api/git")]
+[Authorize]
 public class GitController : ControllerBase
 {
     private readonly IGitService _gitService;

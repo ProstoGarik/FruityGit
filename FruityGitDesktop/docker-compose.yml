@@ -1,71 +1,10 @@
-x-logging: &default-logging
-  driver: loki
-  options:
-    loki-url: 'http://localhost:3100/api/prom/push'
-    loki-pipeline-stages: |
-      - multiline:
-          firstline: '^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}'
-          max_wait_time: 3s
-      - regex:
-          expression: '^(?P<time>\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2},\d{3}) (?P<message>(?s:.*))$$'
+# Minimal stack: Postgres + single backend (auth + git API).
+# Optional: add Loki/Prometheus/Grafana for observability.
 
 services:
-  loki:
-    container_name: "loki"
-    image: grafana/loki:3.0.0
-    command: -config.file=/etc/loki/local-config.yaml
-    networks:
-      - stats
-    ports:
-      - "3100:3100"
-
-  prometheus:
-    container_name: "prometheus"
-    stop_grace_period: 15s
-    image: prom/prometheus:v2.51.2
-    volumes:
-      - ./etc/prometheus:/etc/prometheus
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-    depends_on:
-      - loki
-    logging: *default-logging
-    networks:
-      - stats
-
   postgres:
     container_name: postgres_container
     image: postgres:14.8-alpine3.18
-    command:
-      - "postgres"
-      - "-c"
-      - "max_connections=50"
-      - "-c"
-      - "shared_buffers=1GB"
-      - "-c"
-      - "effective_cache_size=4GB"
-      - "-c"
-      - "work_mem=16MB"
-      - "-c"
-      - "maintenance_work_mem=512MB"
-      - "-c"
-      - "random_page_cost=1.1"
-      - "-c"
-      - "temp_file_limit=10GB"
-      - "-c"
-      - "log_min_duration_statement=200ms"
-      - "-c"
-      - "idle_in_transaction_session_timeout=10s"
-      - "-c"
-      - "lock_timeout=1s"
-      - "-c"
-      - "statement_timeout=60s"
-      - "-c"
-      - "shared_preload_libraries=pg_stat_statements"
-      - "-c"
-      - "pg_stat_statements.max=10000"
-      - "-c"
-      - "pg_stat_statements.track=all"
     environment:
       POSTGRES_DB: "FruityDB"
       POSTGRES_USER: "postgres"
@@ -73,6 +12,8 @@ services:
       PGDATA: "/var/lib/postgresql/data/pgdata"
     volumes:
       - fruity-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d FruityDB"]
       interval: 10s
@@ -80,146 +21,34 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 4G
     networks:
-      - postgres
       - backend
 
-  pgadmin:
-    container_name: pgadmin_container
-    image: dpage/pgadmin4:7.2
-    environment:
-      PGADMIN_DEFAULT_EMAIL: "fruitygituser@fruity.com"
-      PGADMIN_DEFAULT_PASSWORD: "123Secret"
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    ports:
-      - "5050:80"
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 1G
-    networks:
-      - postgres  
-
-  grafana:
-    container_name: "grafana"
-    stop_grace_period: 15s
-    image: grafana/grafana:10.4.2
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./etc/grafana/provisioning:/etc/grafana/provisioning
-      - ./etc/dashboards:/etc/grafana/dashboards
-    environment:
-      GF_SECURITY_ADMIN_USER: "admin"
-      GF_SECURITY_ADMIN_PASSWORD: "admin"
-      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
-    depends_on:
-      - loki
-      - prometheus
-    logging: *default-logging
-    networks:
-      - stats
-
   fruitygitserver:
-    container_name: "fruity-server"
+    container_name: fruity-server
     build:
       context: .
       dockerfile: src/FruityGitServer/Dockerfile
     ports:
-      - "8000:8080"
+      - "8081:8080"
     networks:
-      - stats
-      - backend 
+      - backend
     depends_on:
-      loki:
-        condition: service_started
       postgres:
         condition: service_healthy
-    logging: *default-logging
     environment:
+      - ASPNETCORE_URLS=http://+:8080
       - APP_NAME=fruitygit
       - DB_HOST=postgres
       - POSTGRES_DB=FruityDB
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=123Secret
-
     volumes:
       - ./ReposFolder:/app/ReposFolder
-  
-  authapi:
-    stop_grace_period: 30s
-    stop_signal: SIGTERM
-    container_name: auth-api
-    image: ${DOCKER_REGISTRY-}authapi
-    build:
-      context: .
-      dockerfile: src/AuthAPI/Dockerfile
-    environment:
-      - APP_NAME=auth
-      - DB_HOST=postgres
-      - POSTGRES_DB=FruityDB
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=123Secret
-    depends_on:
-      postgres:
-        condition: service_healthy
-      loki:
-        condition: service_started
-    networks:
-      - backend
-    healthcheck:
-      test: curl --fail http://localhost:8080/health || exit 1
-      interval: 2s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-    labels:
-      - "app=auth"
-      - "service=backend"
-    logging: *default-logging
-
-  apigateway:
-    stop_grace_period: 30s
-    stop_signal: SIGTERM
-    container_name: api-gateway
-    image: ${DOCKER_REGISTRY-}apigateway
-    environment:
-      - APP_NAME=gateway
-    build:
-      context: .
-      dockerfile: src/ApiGateway/Dockerfile
-    ports:
-      - "8081:8080"
-    networks:
-      - backend
-      - gate
-    labels:
-      - "app=gateway"
-      - "service=backend"
-    logging: *default-logging
-        
 
 volumes:
-  grafana_data:
   fruity-data:
-  pgadmin-data:
 
 networks:
-  stats:
-    driver: bridge 
-  postgres:
-    driver: bridge
   backend:
-    driver: bridge
-  gate:
     driver: bridge
