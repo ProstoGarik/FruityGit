@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const isDev = require('electron-is-dev');
+const simpleGit = require('simple-git');
 
 let mainWindow = null;
 
@@ -135,6 +136,190 @@ ipcMain.handle('run-python-processor', async (event, filePath) => {
       }
     });
   });
+});
+
+// Helper: Validate and normalize repo path
+const validateRepoPath = (inputPath) => {
+  const resolved = path.resolve(inputPath);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`Path does not exist: ${resolved}`);
+  }
+  return resolved;
+};
+
+// Check if Git is installed and accessible
+ipcMain.handle('git:check-installed', async () => {
+  try {
+    const git = simpleGit();
+    await git.version();
+    return { installed: true };
+  } catch (error) {
+    return {
+      installed: false,
+      message: 'Git is not installed or not in PATH. Please install Git to use local repository features.'
+    };
+  }
+});
+
+// Initialize or open a Git repository at a path
+ipcMain.handle('git:init-or-open', async (event, { repoPath }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+
+    // Check if already a repo, if not initialize
+    const isRepo = await git.checkIsRepo();
+    if (!isRepo) {
+      await git.init();
+    }
+
+    return { success: true, path: validatedPath, initialized: !isRepo };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Clone a remote repository
+ipcMain.handle('git:clone', async (event, { remoteUrl, localPath, auth }) => {
+  try {
+    const validatedPath = path.resolve(localPath);
+    const git = simpleGit();
+
+    // Build clone options with auth if provided
+    const cloneOptions = [];
+    if (auth?.username && auth?.password) {
+      // For HTTPS auth, embed credentials in URL (simple-git handles this)
+      const urlWithAuth = remoteUrl.replace('https://', `https://${encodeURIComponent(auth.username)}:${encodeURIComponent(auth.password)}@`);
+      await git.clone(urlWithAuth, validatedPath);
+    } else {
+      await git.clone(remoteUrl, validatedPath);
+    }
+
+    return { success: true, path: validatedPath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get repository status
+ipcMain.handle('git:status', async (event, { repoPath }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+    const status = await git.status();
+    return { success: true, status };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Add files to staging
+ipcMain.handle('git:add', async (event, { repoPath, files }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+    await git.add(files); // files can be string or array
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Commit changes
+ipcMain.handle('git:commit', async (event, { repoPath, message, author }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+
+    const commitOptions = {};
+    if (author?.name && author?.email) {
+      commitOptions['--author'] = `${author.name} <${author.email}>`;
+    }
+
+    const result = await git.commit(message, commitOptions);
+    return { success: true, commit: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Push to remote
+ipcMain.handle('git:push', async (event, { repoPath, remote = 'origin', branch = 'main', auth }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+
+    const pushOptions = {};
+    if (auth?.username && auth?.password) {
+      // simple-git can handle auth via env or URL
+      pushOptions['--force-with-lease'] = null; // optional safety
+    }
+
+    const result = await git.push(remote, branch, pushOptions);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Pull from remote
+ipcMain.handle('git:pull', async (event, { repoPath, remote = 'origin', branch = 'main' }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+    const result = await git.pull(remote, branch);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get commit log/history
+ipcMain.handle('git:log', async (event, { repoPath, maxCount = 20 }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+    const log = await git.log({ maxCount });
+    return { success: true, commits: log.all };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get current branch
+ipcMain.handle('git:current-branch', async (event, { repoPath }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+    const branch = await git.branch();
+    return { success: true, current: branch.current, all: branch.all };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Add remote origin (if not set)
+ipcMain.handle('git:add-remote', async (event, { repoPath, remoteName = 'origin', url }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+    await git.addRemote(remoteName, url);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get remote URLs
+ipcMain.handle('git:get-remotes', async (event, { repoPath }) => {
+  try {
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+    const remotes = await git.getRemotes(true);
+    return { success: true, remotes };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
 // New: fs wrappers

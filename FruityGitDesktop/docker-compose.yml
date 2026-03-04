@@ -1,5 +1,5 @@
-# Minimal stack: Postgres + single backend (auth + git API).
-# Optional: add Loki/Prometheus/Grafana for observability.
+# Minimal stack: Postgres + Gitea + single backend (auth + metadata API).
+# Gitea handles all git operations, ASP server handles auth and metadata.
 
 services:
   postgres:
@@ -24,6 +24,37 @@ services:
     networks:
       - backend
 
+  gitea:
+    container_name: gitea_container
+    image: gitea/gitea:latest
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=postgres:5432
+      - GITEA__database__NAME=FruityDB
+      - GITEA__database__USER=postgres
+      - GITEA__database__PASSWD=123Secret
+      - GITEA__database__SSL_MODE=disable
+      - GITEA__server__DOMAIN=localhost
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__ROOT_URL=http://localhost:3000
+      - GITEA__server__SSH_DOMAIN=localhost
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__service__DISABLE_REGISTRATION=false
+    volumes:
+      - gitea-data:/data
+      - gitea-config:/etc/gitea
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend
+
   fruitygitserver:
     container_name: fruity-server
     build:
@@ -36,6 +67,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      gitea:
+        condition: service_started
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - APP_NAME=fruitygit
@@ -43,11 +76,13 @@ services:
       - POSTGRES_DB=FruityDB
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=123Secret
-    volumes:
-      - ./ReposFolder:/app/ReposFolder
+      - GITEA_URL=http://gitea:3000
+    restart: unless-stopped
 
 volumes:
   fruity-data:
+  gitea-data:
+  gitea-config:
 
 networks:
   backend:
