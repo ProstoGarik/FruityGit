@@ -10,5 +10,6 @@ public class Repository
     public string AuthorEmail { get; set; } = string.Empty;
     public bool IsPrivate { get; set; }
     public DateTime CreatedAt { get; set; }
+    public User? Author { get; set; }
 }
 

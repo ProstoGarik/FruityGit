@@ -135,20 +135,31 @@ public class GitService : IGitService
             throw new ArgumentException("Either User Id or Email must be provided", nameof(userInfo));
         }
 
-        IEnumerable<Repository> repositories;
+        var allRepos = new List<Repository>();
 
         if (!string.IsNullOrEmpty(userInfo.Id))
         {
-            _logger.LogInformation("Searching repositories for UserId: {UserId}", userInfo.Id);
-            repositories = await _repositoryRepository.GetUserRepositoriesAsync(userInfo.Id);
+            _logger.LogInformation("Fetching all repositories for user {UserId} (including private)", userInfo.Id);
+            var userRepos = await _repositoryRepository.GetUserRepositoriesAsync(userInfo.Id);
+            allRepos.AddRange(userRepos);
+
+            _logger.LogInformation("Fetching all public repositories");
+            var publicRepos = await _repositoryRepository.GetAllPublicRepositoriesAsync();
+            allRepos.AddRange(publicRepos);
         }
         else
         {
-            _logger.LogInformation("Searching public repositories for Email: {Email}", userInfo.Email);
-            repositories = await _repositoryRepository.GetPublicRepositoriesByEmailAsync(userInfo.Email!);
+            _logger.LogInformation("Fetching public repositories for email {Email}", userInfo.Email);
+            var publicReposByEmail = await _repositoryRepository.GetPublicRepositoriesByEmailAsync(userInfo.Email!);
+            allRepos.AddRange(publicReposByEmail);
         }
 
-        var dbRepos = repositories.Select(r => r.Name).ToList();
+        var distinctRepos = allRepos
+            .GroupBy(r => r.Id)
+            .Select(g => g.First())
+            .ToList();
+
+        var dbRepoNames = distinctRepos.Select(r => r.Name).ToHashSet();
 
         if (!Directory.Exists(_reposRootPath))
         {
@@ -162,7 +173,7 @@ public class GitService : IGitService
         var validRepos = Directory.GetDirectories(_reposRootPath)
             .Where(dir => GitRepository.IsValid(dir))
             .Select(dir => Path.GetRelativePath(_reposRootPath, dir))
-            .Where(repoName => dbRepos.Contains(repoName))
+            .Where(repoName => dbRepoNames.Contains(repoName))
             .ToList();
 
         return new RepositoriesListResponseDto

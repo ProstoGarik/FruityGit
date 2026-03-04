@@ -19,26 +19,39 @@ public class DataContext : IdentityDbContext<User>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<Repository>(entity =>
         {
             entity.HasKey(r => r.Id);
             entity.Property(r => r.Id).ValueGeneratedOnAdd();
+
             entity.Property(r => r.Name)
                   .IsRequired()
                   .HasMaxLength(100);
+
             entity.Property(r => r.DirectoryPath)
                   .IsRequired();
+
             entity.Property(r => r.AuthorId)
                   .IsRequired();
+
             entity.Property(r => r.IsPrivate)
                   .IsRequired()
                   .HasDefaultValue(false);
+
             entity.Property(r => r.CreatedAt)
                   .IsRequired()
                   .HasDefaultValueSql("NOW()");
-            
-            entity.HasIndex(r => r.Name)
+
+            entity.HasOne(r => r.Author)
+                  .WithMany()                    
+                  .HasForeignKey(r => r.AuthorId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(r => new { r.Name, r.AuthorId })
                   .IsUnique();
+
+            entity.HasIndex(r => r.AuthorId);
         });
     }
 

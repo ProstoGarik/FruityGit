@@ -74,5 +74,12 @@ public class RepositoryRepository : IRepositoryRepository
         return await _context.Repositories
             .AnyAsync(r => r.Name == name);
     }
+
+    public async Task<IEnumerable<Repository>> GetAllPublicRepositoriesAsync()
+{
+    return await _context.Repositories
+        .Where(r => !r.IsPrivate)
+        .ToListAsync();
+}
 }
 
