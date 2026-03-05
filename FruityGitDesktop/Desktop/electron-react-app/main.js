@@ -186,10 +186,12 @@ ipcMain.handle('git:clone', async (event, { remoteUrl, localPath, auth }) => {
     const git = simpleGit();
 
     // Build clone options with auth if provided
-    const cloneOptions = [];
     if (auth?.username && auth?.password) {
       // For HTTPS auth, embed credentials in URL (simple-git handles this)
-      const urlWithAuth = remoteUrl.replace('https://', `https://${encodeURIComponent(auth.username)}:${encodeURIComponent(auth.password)}@`);
+      // Handle both http:// and https://
+      const protocol = remoteUrl.startsWith('https://') ? 'https://' : 'http://';
+      const urlWithoutProtocol = remoteUrl.replace(/^https?:\/\//, '');
+      const urlWithAuth = `${protocol}${encodeURIComponent(auth.username)}:${encodeURIComponent(auth.password)}@${urlWithoutProtocol}`;
       await git.clone(urlWithAuth, validatedPath);
     } else {
       await git.clone(remoteUrl, validatedPath);
@@ -249,13 +251,25 @@ ipcMain.handle('git:push', async (event, { repoPath, remote = 'origin', branch =
     const validatedPath = validateRepoPath(repoPath);
     const git = simpleGit(validatedPath);
 
-    const pushOptions = {};
+    // Get current remote URL and update with auth if needed
     if (auth?.username && auth?.password) {
-      // simple-git can handle auth via env or URL
-      pushOptions['--force-with-lease'] = null; // optional safety
+      const remotes = await git.getRemotes(true);
+      const originRemote = remotes.find(r => r.name === remote);
+      if (originRemote) {
+        let remoteUrl = originRemote.refs.fetch || originRemote.refs.push;
+        // Update URL with credentials
+        const protocol = remoteUrl.startsWith('https://') ? 'https://' : 'http://';
+        const urlWithoutProtocol = remoteUrl.replace(/^https?:\/\//, '').replace(/^[^@]+@/, '');
+        const urlWithAuth = `${protocol}${encodeURIComponent(auth.username)}:${encodeURIComponent(auth.password)}@${urlWithoutProtocol}`;
+        
+        // Update remote URL temporarily (or use environment variables)
+        // For now, we'll use the URL with embedded credentials
+        await git.removeRemote(remote);
+        await git.addRemote(remote, urlWithAuth);
+      }
     }
 
-    const result = await git.push(remote, branch, pushOptions);
+    const result = await git.push(remote, branch);
     return { success: true, result };
   } catch (error) {
     return { success: false, error: error.message };

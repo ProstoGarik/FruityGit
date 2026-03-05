@@ -2,37 +2,36 @@ using FruityGitServer.DTOs;
 using FruityGitServer.Exceptions;
 using FruityGitServer.Models;
 using FruityGitServer.Repositories;
-using LibGit2Sharp;
-using System.IO.Compression;
 using Repository = FruityGitServer.Models.Repository;
-using GitRepository = LibGit2Sharp.Repository;
 
 namespace FruityGitServer.Services;
 
+/// <summary>
+/// Service for managing repository metadata only.
+/// All git operations are handled by Gitea.
+/// </summary>
 public class GitService : IGitService
 {
     private readonly IRepositoryRepository _repositoryRepository;
-    private readonly string _reposRootPath;
     private readonly ILogger<GitService> _logger;
-    private const int MaxFileSize = 100 * 1024 * 1024; // 100MB
+    private readonly string _giteaUrl;
 
     public GitService(
         IRepositoryRepository repositoryRepository,
-        IWebHostEnvironment env,
+        IConfiguration configuration,
         ILogger<GitService> logger)
     {
         _repositoryRepository = repositoryRepository;
-        _reposRootPath = Path.Combine(env.ContentRootPath, "ReposFolder");
         _logger = logger;
-        Directory.CreateDirectory(_reposRootPath);
+        _giteaUrl = configuration["GITEA_URL"] ?? Environment.GetEnvironmentVariable("GITEA_URL") ?? "http://localhost:3000";
     }
 
-    public async Task<RepositoryResponseDto> InitializeRepositoryAsync(string repoName, RepositoryInitRequest request)
+    public async Task<RepositoryResponseDto> CreateRepositoryMetadataAsync(string repoName, RepositoryInitRequest request)
     {
         ValidateRepositoryName(repoName);
         ValidateUserInfo(request.UserId, request.UserName, request.UserEmail);
 
-        _logger.LogInformation("Initializing repository: {RepoName} for user: {UserId}", repoName, request.UserId);
+        _logger.LogInformation("Creating repository metadata: {RepoName} for user: {UserId}", repoName, request.UserId);
 
         // Check if user already has a repository with this name
         if (await _repositoryRepository.ExistsAsync(repoName, request.UserId))
@@ -40,27 +39,12 @@ public class GitService : IGitService
             throw new RepositoryAlreadyExistsException(repoName);
         }
 
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-
-        // Check if the physical directory exists (global check)
-        if (Directory.Exists(repoPath) && GitRepository.IsValid(repoPath))
-        {
-            throw new RepositoryAlreadyExistsException(repoName);
-        }
-
-        // Clean up if directory exists but is not a valid git repo
-        if (Directory.Exists(repoPath))
-        {
-            Directory.Delete(repoPath, true);
-        }
-
-        Directory.CreateDirectory(repoPath);
-        GitRepository.Init(repoPath);
-
+        // Create metadata record only
+        // Note: The actual git repository should be created in Gitea by the client
         var repository = new Repository
         {
             Name = repoName,
-            DirectoryPath = repoPath,
+            DirectoryPath = string.Empty, // No longer storing physical paths
             AuthorId = request.UserId,
             AuthorName = request.UserName,
             AuthorEmail = request.UserEmail,
@@ -70,63 +54,18 @@ public class GitService : IGitService
 
         await _repositoryRepository.CreateAsync(repository);
 
+        // Construct Gitea repository URL
+        var giteaRepoUrl = $"{_giteaUrl}/{request.UserName}/{repoName}.git";
+
         return new RepositoryResponseDto
         {
             Success = true,
             RepositoryName = repoName,
             IsPrivate = request.IsPrivate,
-            Path = repoPath
+            Path = giteaRepoUrl // Return Gitea URL instead of local path
         };
     }
 
-    public async Task<CommitResponseDto> CommitAsync(string repoName, CommitRequestDto request)
-    {
-        ValidateRepositoryName(repoName);
-        ValidateUserInfo(request.UserInfo.Id, request.UserInfo.Name, request.UserInfo.Email);
-
-        if (request.File == null || request.File.Length == 0)
-        {
-            throw new ArgumentException("No file was uploaded", nameof(request));
-        }
-
-        if (request.File.Length > MaxFileSize)
-        {
-            throw new ArgumentException($"File size exceeds maximum limit of {MaxFileSize} bytes", nameof(request));
-        }
-
-        var fileName = Path.GetFileName(request.File.FileName);
-        if (string.IsNullOrEmpty(fileName))
-        {
-            throw new ArgumentException("Invalid file name", nameof(request));
-        }
-
-        _logger.LogInformation("Committing file {FileName} to repository {RepoName} for user {UserId}",
-            fileName, repoName, request.UserInfo.Id);
-
-        await EnsureRepositoryAccessAsync(repoName, request.UserInfo.Id);
-
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-        var filePath = Path.Combine(repoPath, fileName);
-
-        using var repo = new GitRepository(repoPath);
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await request.File.CopyToAsync(stream);
-        }
-
-        Commands.Stage(repo, filePath);
-
-        var commitMessage = $"{request.Summary} _summEnd_ {request.Description}";
-        var signature = new Signature(request.UserInfo.Name, request.UserInfo.Email, DateTimeOffset.Now);
-        repo.Commit(commitMessage, signature, signature);
-
-        return new CommitResponseDto
-        {
-            Success = true,
-            FileName = fileName,
-            CommitMessage = commitMessage
-        };
-    }
 
     public async Task<RepositoriesListResponseDto> GetRepositoriesAsync(UserInfoDto userInfo)
     {
@@ -159,58 +98,35 @@ public class GitService : IGitService
             .Select(g => g.First())
             .ToList();
 
-        var dbRepoNames = distinctRepos.Select(r => r.Name).ToHashSet();
-
-        if (!Directory.Exists(_reposRootPath))
-        {
-            return new RepositoriesListResponseDto
-            {
-                Count = 0,
-                Repositories = new List<string>()
-            };
-        }
-
-        var validRepos = Directory.GetDirectories(_reposRootPath)
-            .Where(dir => GitRepository.IsValid(dir))
-            .Select(dir => Path.GetRelativePath(_reposRootPath, dir))
-            .Where(repoName => dbRepoNames.Contains(repoName))
-            .ToList();
+        // Return repository names from metadata only
+        var repoNames = distinctRepos.Select(r => r.Name).ToList();
 
         return new RepositoriesListResponseDto
         {
-            Count = validRepos.Count,
-            Repositories = validRepos
+            Count = repoNames.Count,
+            Repositories = repoNames
         };
     }
 
-    public async Task<CommitHistoryResponseDto> GetHistoryAsync(string repoName, UserInfoDto userInfo)
+    public async Task<string> GetGiteaRepositoryUrlAsync(string repoName, UserInfoDto userInfo)
     {
         ValidateRepositoryName(repoName);
         ValidateUserInfo(userInfo.Id, userInfo.Name, userInfo.Email);
 
         await EnsureRepositoryAccessAsync(repoName, userInfo.Id);
 
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-        var commits = new List<CommitDto>();
-
-        using var repo = new GitRepository(repoPath);
-        foreach (var commit in repo.Commits)
+        // Get repository metadata to find the owner
+        var repository = await _repositoryRepository.GetByNameAsync(repoName, userInfo.Id);
+        if (repository == null)
         {
-            commits.Add(new CommitDto
-            {
-                Id = commit.Id.ToString(),
-                Author = commit.Author.Name,
-                Email = commit.Author.Email,
-                Message = commit.Message,
-                Date = commit.Author.When
-            });
+            throw new RepositoryNotFoundException(repoName);
         }
 
-        return new CommitHistoryResponseDto
-        {
-            Count = commits.Count,
-            Commits = commits
-        };
+        // Construct Gitea repository URL
+        // Format: http://gitea:3000/{username}/{reponame}.git
+        var giteaRepoUrl = $"{_giteaUrl}/{repository.AuthorName}/{repoName}.git";
+        
+        return giteaRepoUrl;
     }
 
     public async Task DeleteRepositoryAsync(string repoName, UserInfoDto userInfo)
@@ -225,54 +141,11 @@ public class GitService : IGitService
             throw new Exceptions.RepositoryNotFoundException(repoName);
         }
 
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-
-        if (Directory.Exists(repoPath))
-        {
-            Directory.Delete(repoPath, recursive: true);
-        }
-
+        // Delete metadata only
+        // Note: The actual repository in Gitea should be deleted separately via Gitea API
         await _repositoryRepository.DeleteAsync(repository.Id);
 
-        _logger.LogInformation("Successfully deleted repository: {RepoName}", repoName);
-    }
-
-    public async Task<Stream> DownloadRepositoryAsync(string repoName, UserInfoDto userInfo)
-    {
-        ValidateRepositoryName(repoName);
-        ValidateUserInfo(userInfo.Id, userInfo.Name, userInfo.Email);
-
-        await EnsureRepositoryAccessAsync(repoName, userInfo.Id);
-
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-
-        if (!GitRepository.IsValid(repoPath))
-        {
-            throw new Exceptions.RepositoryNotFoundException(repoName);
-        }
-
-        var zipPath = Path.GetTempFileName() + ".zip";
-        ZipFile.CreateFromDirectory(repoPath, zipPath);
-
-        return new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
-    }
-
-    public async Task<List<FileInfoDto>> GetRepositoryFilesAsync(string repoName, UserInfoDto userInfo)
-    {
-        ValidateRepositoryName(repoName);
-        ValidateUserInfo(userInfo.Id, userInfo.Name, userInfo.Email);
-
-        await EnsureRepositoryAccessAsync(repoName, userInfo.Id);
-
-        var repoPath = Path.Combine(_reposRootPath, repoName);
-        var root = new DirectoryInfo(repoPath);
-
-        if (!root.Exists)
-        {
-            return new List<FileInfoDto>();
-        }
-
-        return GetDirectoryContents(root, repoPath);
+        _logger.LogInformation("Successfully deleted repository metadata: {RepoName}", repoName);
     }
 
     private async Task EnsureRepositoryAccessAsync(string repoName, string userId)
@@ -321,49 +194,5 @@ public class GitService : IGitService
         }
     }
 
-    private List<FileInfoDto> GetDirectoryContents(DirectoryInfo directory, string basePath)
-    {
-        var contents = new List<FileInfoDto>();
-
-        // Add files
-        foreach (var file in directory.GetFiles())
-        {
-            // Skip .git directory contents
-            if (file.DirectoryName != null && file.DirectoryName.Contains(Path.Combine(basePath, ".git")))
-            {
-                continue;
-            }
-
-            contents.Add(new FileInfoDto
-            {
-                Name = file.Name,
-                Path = Path.GetRelativePath(basePath, file.FullName),
-                Type = "file",
-                Size = file.Length,
-                LastModified = file.LastWriteTimeUtc
-            });
-        }
-
-        // Add directories
-        foreach (var dir in directory.GetDirectories())
-        {
-            // Skip .git directory
-            if (dir.Name == ".git")
-            {
-                continue;
-            }
-
-            contents.Add(new FileInfoDto
-            {
-                Name = dir.Name,
-                Path = Path.GetRelativePath(basePath, dir.FullName),
-                Type = "directory",
-                LastModified = dir.LastWriteTimeUtc,
-                Contents = GetDirectoryContents(dir, basePath)
-            });
-        }
-
-        return contents;
-    }
 }
 

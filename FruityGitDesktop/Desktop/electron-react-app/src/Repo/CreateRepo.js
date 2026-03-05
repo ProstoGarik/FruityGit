@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './CreateRepo.css';
 import { getAccessToken, refreshAuthToken } from '../Login/AuthService';
+import { GiteaService } from '../Git/GiteaService';
 
 function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
   const [repoName, setRepoName] = useState('');
@@ -78,15 +79,47 @@ function CreateRepo({ serverPath, onClose, onCreate, user, handleLogout }) {
       }
 
       const result = await response.json();
-      setRepoName('');
-      setIsPrivate(false);
-      onClose();
-      onCreate({
-        name: result.RepositoryName,
-        isPrivate: result.IsPrivate,
-        path: result.Path,
-        author: user.name
-      });
+      
+      // Now create the repository in Gitea
+      try {
+        // For Gitea authentication, we'll use the username and try to get/create a token
+        // In a production app, you might want to store Gitea credentials separately
+        // For now, we'll prompt or use a stored Gitea token
+        const giteaToken = localStorage.getItem('giteaToken') || user.name; // Fallback to username
+        
+        const giteaRepo = await GiteaService.createRepository(
+          result.RepositoryName,
+          result.IsPrivate,
+          user.name,
+          giteaToken
+        );
+
+        setRepoName('');
+        setIsPrivate(false);
+        onClose();
+        onCreate({
+          name: result.RepositoryName,
+          isPrivate: result.IsPrivate,
+          path: giteaRepo.cloneUrl,
+          author: user.name,
+          giteaUrl: giteaRepo.url,
+          cloneUrl: giteaRepo.cloneUrl
+        });
+      } catch (giteaError) {
+        // If Gitea creation fails, still create metadata but warn user
+        console.error('Gitea repository creation failed:', giteaError);
+        setRepoName('');
+        setIsPrivate(false);
+        onClose();
+        onCreate({
+          name: result.RepositoryName,
+          isPrivate: result.IsPrivate,
+          path: result.Path,
+          author: user.name,
+          giteaUrl: result.Path
+        });
+        alert(`Repository metadata created, but Gitea repository creation failed: ${giteaError.message}\n\nYou may need to create it manually in Gitea or check your Gitea credentials.`);
+      }
     } catch (err) {
       setError(err.message);
     } finally {

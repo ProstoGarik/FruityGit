@@ -5,6 +5,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FruityGitServer.Controllers;
 
+/// <summary>
+/// Controller for managing repository metadata.
+/// All git operations are handled by Gitea directly.
+/// </summary>
 [ApiController]
 [Route("api/git")]
 [Authorize]
@@ -19,20 +23,19 @@ public class GitController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// Creates repository metadata. The actual git repository should be created in Gitea.
+    /// </summary>
     [HttpPost("{repoName}/init")]
     public async Task<IActionResult> InitializeRepository(string repoName, [FromBody] RepositoryInitRequest request)
     {
-        var result = await _gitService.InitializeRepositoryAsync(repoName, request);
+        var result = await _gitService.CreateRepositoryMetadataAsync(repoName, request);
         return Ok(result);
     }
 
-    [HttpPost("{repoName}/commit")]
-    public async Task<IActionResult> Commit(string repoName, [FromForm] CommitRequestDto request)
-    {
-        var result = await _gitService.CommitAsync(repoName, request);
-        return Ok(result);
-    }
-
+    /// <summary>
+    /// Gets list of repositories (metadata only).
+    /// </summary>
     [HttpPost("repositories")]
     public async Task<IActionResult> GetRepositories([FromBody] UserInfoDto userInfo)
     {
@@ -40,32 +43,25 @@ public class GitController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("{repoName}/history")]
-    public async Task<IActionResult> GetHistory(string repoName, [FromBody] UserInfoDto userInfo)
+    /// <summary>
+    /// Gets Gitea repository URL for cloning/pushing.
+    /// </summary>
+    [HttpPost("{repoName}/url")]
+    public async Task<IActionResult> GetRepositoryUrl(string repoName, [FromBody] UserInfoDto userInfo)
     {
-        var result = await _gitService.GetHistoryAsync(repoName, userInfo);
-        return Ok(result);
+        var url = await _gitService.GetGiteaRepositoryUrlAsync(repoName, userInfo);
+        return Ok(new { Url = url });
     }
 
+    /// <summary>
+    /// Deletes repository metadata.
+    /// Note: The actual repository in Gitea should be deleted separately.
+    /// </summary>
     [HttpPost("{repoName}/delete")]
     public async Task<IActionResult> DeleteRepository(string repoName, [FromBody] UserInfoDto userInfo)
     {
         await _gitService.DeleteRepositoryAsync(repoName, userInfo);
-        return Ok(new { Success = true, Message = $"Repository {repoName} deleted successfully" });
-    }
-
-    [HttpPost("{repoName}/download")]
-    public async Task<IActionResult> DownloadRepository(string repoName, [FromBody] UserInfoDto userInfo)
-    {
-        var stream = await _gitService.DownloadRepositoryAsync(repoName, userInfo);
-        return File(stream, "application/zip", $"{repoName}.zip");
-    }
-
-    [HttpPost("{repoName}/files")]
-    public async Task<IActionResult> GetRepositoryFiles(string repoName, [FromBody] UserInfoDto userInfo)
-    {
-        var files = await _gitService.GetRepositoryFilesAsync(repoName, userInfo);
-        return Ok(new { Files = files });
+        return Ok(new { Success = true, Message = $"Repository metadata for {repoName} deleted successfully. Please delete the repository in Gitea separately." });
     }
 }
 

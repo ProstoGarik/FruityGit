@@ -1,4 +1,5 @@
 // src/Git/GitService.js
+import { GiteaService } from './GiteaService';
 
 export const GitService = {
   // Check prerequisites
@@ -17,15 +18,25 @@ export const GitService = {
     return result;
   },
 
-  // Clone from your ASP.NET server or other remote
+  // Clone from Gitea
   async cloneRepo(remoteUrl, localPath, user) {
-    // For your server, you might need auth token
-    const auth = user?.accessToken ? {
-      username: 'token', // or your auth scheme
-      password: user.accessToken
+    // Get Gitea credentials - try stored token first, then fallback to username
+    const giteaToken = localStorage.getItem('giteaToken');
+    const giteaUsername = user?.name || user?.email || 'user';
+    const giteaPassword = giteaToken || user?.accessToken || '';
+    
+    // Build authenticated URL if credentials are available
+    let cloneUrl = remoteUrl;
+    if (giteaUsername && giteaPassword) {
+      cloneUrl = GiteaService.buildAuthenticatedUrl(remoteUrl, giteaUsername, giteaPassword);
+    }
+    
+    const auth = (giteaUsername && giteaPassword) ? {
+      username: giteaUsername,
+      password: giteaPassword
     } : null;
     
-    const result = await window.electronAPI.git.clone(remoteUrl, localPath, auth);
+    const result = await window.electronAPI.git.clone(cloneUrl || remoteUrl, localPath, auth);
     if (!result.success) throw new Error(result.error);
     return result;
   },
@@ -45,11 +56,16 @@ export const GitService = {
     return result.commit;
   },
 
-  // Push local changes to your server
+  // Push local changes to Gitea
   async pushToServer(repoPath, user, branch = 'main') {
-    const auth = user?.accessToken ? {
-      username: 'token',
-      password: user.accessToken
+    // Get Gitea credentials
+    const giteaToken = localStorage.getItem('giteaToken');
+    const giteaUsername = user?.name || user?.email || 'user';
+    const giteaPassword = giteaToken || user?.accessToken || '';
+    
+    const auth = (giteaUsername && giteaPassword) ? {
+      username: giteaUsername,
+      password: giteaPassword
     } : null;
     
     const result = await window.electronAPI.git.push(repoPath, 'origin', branch, auth);
