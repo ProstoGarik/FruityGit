@@ -101,18 +101,79 @@ function App() {
     console.log('window.electronAPI keys:', window.electronAPI ? Object.keys(window.electronAPI) : 'undefined');
 
     try {
+      if (!user) {
+        alert('Please login first');
+        return;
+      }
+
+      if (!selectedRepo) {
+        alert('Please select a repository first');
+        return;
+      }
+
       const filePath = await window.electronAPI.openFlpDialog();
       if (!filePath) return;
+
+      const ensureLocalRepoForSelected = async () => {
+        let localPath = repoPathMap[selectedRepo];
+        if (localPath) {
+          return localPath;
+        }
+
+        const clonePath = await window.electronAPI.openFolderDialog();
+        if (!clonePath) {
+          return null;
+        }
+
+        const repoInfo = await getRepoInfo(user.name, selectedRepo);
+        const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
+        await GitService.cloneRepo(giteaRepoUrl, clonePath, user);
+        setRepoPathMap(prev => ({ ...prev, [selectedRepo]: clonePath }));
+        setLocalRepoPath(clonePath);
+        return clonePath;
+      };
+
+      const stageFileInLocalRepo = async (sourcePath, localPath) => {
+        const fileContent = await window.electronAPI.readFile(sourcePath);
+        if (!fileContent) {
+          throw new Error('Failed to read file');
+        }
+
+        const fileName = sourcePath.split(/[\\/]/).pop();
+        const destinationPath = window.electronAPI.pathJoin(localPath, 'uploads', fileName);
+        await window.electronAPI.mkdir(window.electronAPI.pathDirname(destinationPath), { recursive: true });
+        await window.electronAPI.writeFile(destinationPath, fileContent);
+
+        const addResult = await window.electronAPI.git.add(localPath, destinationPath);
+        if (!addResult.success) {
+          throw new Error(addResult.error || 'Failed to stage file');
+        }
+
+        return destinationPath;
+      };
 
       if (processWithPython) {
         // Call IPC to run Python in main
         const zipPath = await window.electronAPI.runPythonProcessor(filePath);
-        setAttachedFile(zipPath);
-        return zipPath;
+        const localPath = await ensureLocalRepoForSelected();
+        if (!localPath) {
+          alert('Please select a folder to clone the repository');
+          return;
+        }
+        const stagedPath = await stageFileInLocalRepo(zipPath, localPath);
+        setAttachedFile(stagedPath);
+        alert('File added to local repository. Click Commit to create a commit.');
+        return stagedPath;
       } else {
-        // Direct attach
-        setAttachedFile(filePath);
-        return filePath;
+        const localPath = await ensureLocalRepoForSelected();
+        if (!localPath) {
+          alert('Please select a folder to clone the repository');
+          return;
+        }
+        const stagedPath = await stageFileInLocalRepo(filePath, localPath);
+        setAttachedFile(stagedPath);
+        alert('File added to local repository. Click Commit to create a commit.');
+        return stagedPath;
       }
     } catch (error) {
       console.error('Error processing FLP file:', error);
@@ -132,66 +193,20 @@ function App() {
         return;
       }
 
-      if (!attachedFile) {
-        alert('Please attach a file');
-        return;
-      }
-
-      if (!summary) {
-        alert('Please enter a summary');
-        return;
-      }
-
       if (!user) {
         alert('Please login first');
         return;
       }
 
-      // Get local repo path or clone if needed
-      let localPath = repoPathMap[selectedRepo];
-
-      if (!localPath) {
-        // Need to clone the repo first
-        const clonePath = await window.electronAPI.openFolderDialog();
-        if (!clonePath) {
-          alert('Please select a folder to clone the repository');
-          return;
-        }
-
-        // Get Gitea URL from server
-        const repoInfo = await getRepoInfo(user.name, selectedRepo);
-        const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
-
-        // Clone using simple-git
-        const cloneResult = await GitService.cloneRepo(giteaRepoUrl, clonePath, user);
-        localPath = clonePath;
-        setRepoPathMap(prev => ({ ...prev, [selectedRepo]: clonePath }));
-        setLocalRepoPath(clonePath);
+      if (!localRepoPath) {
+        alert('Please select a local repository');
+        return;
       }
 
-      // Read file and copy to repo
-      const fileContent = await window.electronAPI.readFile(attachedFile);
-      if (!fileContent) {
-        throw new Error('Failed to read file');
-      }
+      await GitService.pushToServer(localRepoPath, 'main');
 
-      const fileName = attachedFile.split(/[\\/]/).pop();
-      const filePath = window.electronAPI.pathJoin(localPath, fileName);
-
-      // Write file to repo
-      await window.electronAPI.writeFile(filePath, fileContent);
-
-      // Commit using simple-git
-      await GitService.commitFile(localPath, fileName, summary, description, user);
-
-      // Push to Gitea
-      await GitService.pushToServer(localPath, user);
-
-      alert('File successfully committed and pushed to Gitea!');
-      setSummary('');
-      setDescription('');
-      setAttachedFile(null);
-      handleShowRepo(selectedRepo);
+      alert('Changes successfully pushed to remote repository!');
+      await handleShowRepo(selectedRepo);
     } catch (error) {
       console.error('Send error:', error);
       alert(`Error: ${error.message}`);
@@ -362,29 +377,23 @@ ${formatCommitMessage(commit.message)}`
 
   // Handle "Commit to Local" (instead of sending to server directly)
   const handleCommitToLocal = async () => {
-    if (!localRepoPath || !attachedFile || !summary) {
-      alert('Please select a local repo, attach a file, and add a summary');
+    if (!localRepoPath || !summary) {
+      alert('Please select a local repo and add a summary');
       return;
     }
 
     try {
-      // Copy file to local repo first (optional - or let user manage files)
-      const fileName = attachedFile.split(/[\\/]/).pop();
-      const destPath = window.electronAPI.pathJoin(localRepoPath, 'uploads', fileName);
+      const statusResult = await window.electronAPI.git.status(localRepoPath);
+      if (!statusResult.success) {
+        throw new Error(statusResult.error || 'Failed to get repository status');
+      }
 
-      // Use your exposed fs to copy
-      const fileContent = await window.electronAPI.readFile(attachedFile);
-      await window.electronAPI.mkdir(window.electronAPI.pathDirname(destPath), { recursive: true });
-      await window.electronAPI.writeFile(destPath, fileContent);
+      if (statusResult.status.isClean()) {
+        alert('No staged changes found. Use Attach file first.');
+        return;
+      }
 
-      // Commit via GitService
-      await GitService.commitFile(
-        localRepoPath,
-        destPath,
-        summary,
-        description,
-        user
-      );
+      await GitService.commitStagedChanges(localRepoPath, summary, description, user);
 
       alert('File committed to local repository!');
 
@@ -689,10 +698,10 @@ ${formatCommitMessage(commit.message)}`
                       <button
                         className="repo-action-button"
                         onClick={handleCommitToLocal}
-                        disabled={!attachedFile || !summary}
-                        title="Commit attached file to local repo"
+                        disabled={!summary}
+                        title="Commit staged changes to local repo"
                       >
-                        💾 Commit Local
+                        💾 Commit
                       </button>
 
                       <button

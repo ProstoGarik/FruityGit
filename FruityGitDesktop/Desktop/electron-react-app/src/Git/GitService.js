@@ -47,6 +47,15 @@ export const GitService = {
     return result.commit;
   },
 
+  // Commit already staged changes
+  async commitStagedChanges(repoPath, summary, description, user) {
+    const message = `${summary.trim()}_summEnd_${description?.trim() || ''}`;
+    const author = user ? { name: user.name, email: user.email } : null;
+    const result = await window.electronAPI.git.commit(repoPath, message, author);
+    if (!result.success) throw new Error(result.error);
+    return result.commit;
+  },
+
   // Push local changes to Gitea
   async pushToServer(repoPath, branch = 'main') {
     const giteaToken = getGiteaToken();
