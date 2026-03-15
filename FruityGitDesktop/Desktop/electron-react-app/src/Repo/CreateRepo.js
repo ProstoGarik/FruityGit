@@ -8,6 +8,20 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
   const [error, setError] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
+  const normalizeCloneUrl = (cloneUrl) => {
+    if (!cloneUrl) return cloneUrl;
+    try {
+      const clone = new URL(cloneUrl);
+      const server = new URL(serverPath);
+      const normalizedPath = clone.pathname.startsWith('/gitea/')
+        ? clone.pathname
+        : `/gitea${clone.pathname.startsWith('/') ? clone.pathname : `/${clone.pathname}`}`;
+      return `${server.origin}${normalizedPath}`;
+    } catch (err) {
+      return cloneUrl;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -54,7 +68,7 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
       onCreate({
         name: newRepo.name,
         isPrivate: newRepo.private,
-        cloneUrl: newRepo.clone_url,
+        cloneUrl: normalizeCloneUrl(newRepo.clone_url),
         htmlUrl: newRepo.html_url,
         ...newRepo
       });

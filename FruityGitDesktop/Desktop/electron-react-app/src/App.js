@@ -36,6 +36,21 @@ function App() {
   const [isGitChecking, setIsGitChecking] = useState(false);
   const [gitError, setGitError] = useState(null);
 
+  const normalizeCloneUrl = (cloneUrl) => {
+    if (!cloneUrl) return cloneUrl;
+    try {
+      const clone = new URL(cloneUrl);
+      const server = new URL(serverPath);
+      const normalizedPath = clone.pathname.startsWith('/gitea/')
+        ? clone.pathname
+        : `/gitea${clone.pathname.startsWith('/') ? clone.pathname : `/${clone.pathname}`}`;
+      return `${server.origin}${normalizedPath}`;
+    } catch (error) {
+      console.warn('Failed to normalize clone URL:', cloneUrl, error);
+      return cloneUrl;
+    }
+  };
+
 
 
   const getRepoInfo = async (owner, repo) => {
@@ -145,7 +160,7 @@ function App() {
 
         // Get Gitea URL from server
         const repoInfo = await getRepoInfo(user.name, selectedRepo);
-        const giteaRepoUrl = repoInfo.clone_url;
+        const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
 
         // Clone using simple-git
         const cloneResult = await GitService.cloneRepo(giteaRepoUrl, clonePath, user);
@@ -217,7 +232,7 @@ function App() {
       }
 
       const repoInfo = await getRepoInfo(user.name, repo);
-      const giteaRepoUrl = repoInfo.clone_url;
+      const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
       await GitService.cloneRepo(giteaRepoUrl, clonePath, user); // user пока можно оставить, но он не используется
       setRepoPathMap(prev => ({ ...prev, [repo]: clonePath }));
       setLocalRepoPath(clonePath);
@@ -301,7 +316,7 @@ ${formatCommitMessage(commit.message)}`
 
       // Получаем информацию о репозитории из Gitea (clone_url и другие данные)
       const repoInfo = await getRepoInfo(user.name, selectedRepo);
-      const giteaRepoUrl = repoInfo.clone_url;
+      const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
 
       // Формируем полный путь клонирования: выбранная папка + имя репозитория
       const clonePath = window.electronAPI.pathJoin(tempPath, selectedRepo);
@@ -328,7 +343,7 @@ ${formatCommitMessage(commit.message)}`
       if (!localPath) return;
 
       const repoInfo = await getRepoInfo(user.name, selectedRepo);
-      const giteaRepoUrl = repoInfo.clone_url;
+      const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
 
       setIsLoadingRepos(true);
       await GitService.cloneRepo(giteaRepoUrl, localPath, user);
