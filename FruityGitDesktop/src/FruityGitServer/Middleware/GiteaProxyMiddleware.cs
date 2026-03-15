@@ -85,6 +85,23 @@ public class GiteaProxyMiddleware
                 {
                     giteaBasicAuth = basicHeader.ToString();
                 }
+
+                // Backward compatibility: if caller still uses standard Authorization header
+                // (e.g. "token <sha1>" or "Basic <base64>"), treat it as API auth fallback.
+                if (string.IsNullOrEmpty(giteaToken) &&
+                    string.IsNullOrEmpty(giteaBasicAuth) &&
+                    context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+                {
+                    var authValue = authHeader.ToString();
+                    if (authValue.StartsWith("token ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        giteaToken = authValue.Substring("token ".Length).Trim();
+                    }
+                    else if (authValue.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        giteaBasicAuth = authValue.Substring("Basic ".Length).Trim();
+                    }
+                }
             }
             
             // Копируем заголовки, исключая Host и кастомные Gitea заголовки

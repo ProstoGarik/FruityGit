@@ -69,6 +69,7 @@ app.UseRouting();
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<GiteaProxyMiddleware>();
 
 app.MapHealthChecks("/health");
 app.MapControllers();

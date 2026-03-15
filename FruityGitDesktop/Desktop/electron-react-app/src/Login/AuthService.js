@@ -62,9 +62,11 @@ export const fetchWithGitea = async (url, options = {}) => {
   if (!token) {
     throw new Error('Gitea token not found. Please login again.');
   }
+  const isProxyCall = typeof url === 'string' && url.includes('/gitea/');
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': `token ${token}`,
+    ...(isProxyCall ? { 'X-Gitea-Token': token } : {}),
     ...options.headers
   };
   const response = await fetch(url, { ...options, headers });
