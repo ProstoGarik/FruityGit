@@ -35,6 +35,7 @@ function App() {
   const [repoPathMap, setRepoPathMap] = useState({}); // NEW: stores { remoteRepoName: localPath }
   const [isGitChecking, setIsGitChecking] = useState(false);
   const [gitError, setGitError] = useState(null);
+  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
 
   const normalizeCloneUrl = (cloneUrl) => {
     if (!cloneUrl) return cloneUrl;
@@ -57,6 +58,16 @@ function App() {
     const response = await fetchWithGitea(`${serverPath}/gitea/api/v1/repos/${owner}/${repo}`, { method: 'GET' });
     if (!response.ok) throw new Error('Failed to get repository info');
     return response.json();
+  };
+
+  const fetchWithTimeout = async (url, options = {}, timeoutMs = 8000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
   };
 
   const handleLogin = () => {
@@ -294,6 +305,79 @@ function App() {
     } finally {
       setIsLoadingRepos(false);
     }
+  };
+
+  const handleRunDiagnostics = async () => {
+    if (isRunningDiagnostics) return;
+    setIsRunningDiagnostics(true);
+
+    const lines = [];
+    const addLine = (label, ok, details = '') => {
+      const status = ok ? 'OK' : 'FAIL';
+      lines.push(`${status} | ${label}${details ? ` | ${details}` : ''}`);
+    };
+
+    try {
+      try {
+        const response = await fetchWithTimeout(`${serverPath}/health`);
+        addLine('Backend health endpoint', response.ok, `HTTP ${response.status}`);
+      } catch (error) {
+        addLine('Backend health endpoint', false, error.message);
+      }
+
+      try {
+        const response = await fetchWithTimeout(`${serverPath}/gitea/api/v1/version`);
+        addLine('Gitea proxy endpoint', response.ok, `HTTP ${response.status}`);
+      } catch (error) {
+        addLine('Gitea proxy endpoint', false, error.message);
+      }
+
+      const giteaToken = getGiteaToken();
+      addLine('Gitea token in localStorage', !!giteaToken, giteaToken ? 'present' : 'missing');
+
+      if (giteaToken) {
+        try {
+          const response = await fetchWithTimeout(`${serverPath}/gitea/api/v1/user`, {
+            headers: {
+              'Authorization': `token ${giteaToken}`,
+              'X-Gitea-Token': giteaToken
+            }
+          });
+          addLine('Gitea auth check (/api/v1/user)', response.ok, `HTTP ${response.status}`);
+        } catch (error) {
+          addLine('Gitea auth check (/api/v1/user)', false, error.message);
+        }
+      }
+
+      try {
+        await GitService.checkGitInstalled();
+        addLine('Git installed', true);
+      } catch (error) {
+        addLine('Git installed', false, error.message);
+      }
+
+      if (localRepoPath) {
+        addLine('Local repository selected', true, localRepoPath);
+        const remotesResult = await window.electronAPI.git.getRemotes(localRepoPath);
+        if (remotesResult.success) {
+          const origin = remotesResult.remotes?.find(r => r.name === 'origin');
+          if (origin) {
+            const pushUrl = origin.refs?.push || origin.refs?.fetch || 'unknown';
+            addLine('Origin remote', true, pushUrl);
+          } else {
+            addLine('Origin remote', false, 'origin not found');
+          }
+        } else {
+          addLine('Origin remote', false, remotesResult.error || 'failed to read remotes');
+        }
+      } else {
+        addLine('Local repository selected', false, 'not selected');
+      }
+    } finally {
+      setIsRunningDiagnostics(false);
+    }
+
+    alert(`Diagnostics report:\n\n${lines.join('\n')}`);
   };
 
   const handleCommitSelect = (commit) => {
@@ -644,6 +728,14 @@ ${formatCommitMessage(commit.message)}`
             <div className="repo-buttons">
               <button className="repo-action-button" onClick={handleRefreshRepo} disabled={isLoadingRepos}>
                 {isLoadingRepos ? 'Загрузка...' : 'Обновить'}
+              </button>
+              <button
+                className="repo-action-button"
+                onClick={handleRunDiagnostics}
+                disabled={isRunningDiagnostics}
+                title="Check backend, Gitea proxy, auth token and local git remote"
+              >
+                {isRunningDiagnostics ? 'Checking...' : 'Diagnostics'}
               </button>
               <button
                 className="repo-action-button"
