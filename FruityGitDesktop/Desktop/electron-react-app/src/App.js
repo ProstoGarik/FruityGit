@@ -39,7 +39,7 @@ function App() {
 
 
   const getRepoInfo = async (owner, repo) => {
-    const response = await fetchWithGitea(`http://localhost:3001/api/v1/repos/${owner}/${repo}`, { method: 'GET' });
+    const response = await fetchWithGitea(`${serverPath}/gitea/api/v1/repos/${owner}/${repo}`, { method: 'GET' });
     if (!response.ok) throw new Error('Failed to get repository info');
     return response.json();
   };
@@ -255,7 +255,7 @@ function App() {
 
     setIsLoadingRepos(true);
     try {
-      const response = await fetchWithGitea('http://localhost:3001/api/v1/user/repos', { method: 'GET' });
+      const response = await fetchWithGitea(`${serverPath}/gitea/api/v1/user/repos`, { method: 'GET' });
       const repos = await response.json();
       setRepos(repos.map(r => r.name));
     } catch (error) {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './CreateRepo.css';
 import { fetchWithGitea } from '../Login/AuthService';
 
-function CreateRepo({ onClose, onCreate, user }) {
+function CreateRepo({ onClose, onCreate, user, serverPath }) {
   const [repoName, setRepoName] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +30,7 @@ function CreateRepo({ onClose, onCreate, user }) {
     setIsCreating(true);
 
     try {
-      const response = await fetchWithGitea('http://localhost:3001/api/v1/user/repos', {
+      const response = await fetchWithGitea(`${serverPath}/gitea/api/v1/user/repos`, {
         method: 'POST',
         body: JSON.stringify({
           name: repoName,
