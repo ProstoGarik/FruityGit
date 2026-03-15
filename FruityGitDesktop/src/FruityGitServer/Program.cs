@@ -91,7 +91,8 @@ void RegisterApplicationServices(IServiceCollection services)
 {
     services.AddScoped<IRepositoryRepository, RepositoryRepository>();
     services.AddScoped<IGitService, GitService>();
-    services.AddHttpClient(); // For potential Gitea API calls in the future
+    services.AddHttpClient<GiteaService>();
+    services.AddHttpClient();
 }
 
 async Task InitializeDataSources(WebApplication application)

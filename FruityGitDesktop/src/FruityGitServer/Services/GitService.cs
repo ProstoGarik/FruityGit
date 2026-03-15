@@ -23,7 +23,7 @@ public class GitService : IGitService
     {
         _repositoryRepository = repositoryRepository;
         _logger = logger;
-        _giteaUrl = configuration["GITEA_URL"] ?? Environment.GetEnvironmentVariable("GITEA_URL") ?? "http://localhost:3000";
+        _giteaUrl = configuration["GITEA_PUBLIC_URL"] ?? Environment.GetEnvironmentVariable("GITEA_PUBLIC_URL") ?? "http://localhost:3000/gitea";
     }
 
     public async Task<RepositoryResponseDto> CreateRepositoryMetadataAsync(string repoName, RepositoryInitRequest request)

@@ -21,7 +21,7 @@ function createWindow() {
   });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:3000');
+    mainWindow.loadURL('http://localhost:3002');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../build/index.html'));
@@ -147,6 +147,75 @@ const validateRepoPath = (inputPath) => {
   return resolved;
 };
 
+const ensureBinaryArchiveAttributes = (repoPath) => {
+  const gitattributesPath = path.join(repoPath, '.gitattributes');
+  const requiredRules = [
+    '*.zip binary -text -diff -merge',
+    '*.ZIP binary -text -diff -merge'
+  ];
+
+  let content = '';
+  if (fs.existsSync(gitattributesPath)) {
+    content = fs.readFileSync(gitattributesPath, 'utf8');
+  }
+
+  const lines = content
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const missingRules = requiredRules.filter(rule => !lines.includes(rule));
+  if (missingRules.length === 0) {
+    return false;
+  }
+
+  const nextContent = content.length > 0 && !content.endsWith('\n')
+    ? `${content}\n${missingRules.join('\n')}\n`
+    : `${content}${missingRules.join('\n')}\n`;
+
+  fs.writeFileSync(gitattributesPath, nextContent, 'utf8');
+  return true;
+};
+
+const buildRemoteUrlWithAuth = (remoteUrl, auth) => {
+  if (!remoteUrl || !auth) {
+    return remoteUrl;
+  }
+
+  const protocol = remoteUrl.startsWith('https://') ? 'https://' : 'http://';
+  const urlWithoutProtocol = remoteUrl.replace(/^https?:\/\//, '').replace(/^[^@]+@/, '');
+
+  if (auth.username && auth.password) {
+    return `${protocol}${encodeURIComponent(auth.username)}:${encodeURIComponent(auth.password)}@${urlWithoutProtocol}`;
+  }
+
+  if (auth.token) {
+    return `${protocol}${encodeURIComponent(auth.token)}@${urlWithoutProtocol}`;
+  }
+
+  return remoteUrl;
+};
+
+const setRemoteUrlWithAuthIfNeeded = async (git, remoteName, auth) => {
+  if (!auth || (!auth.token && !(auth.username && auth.password))) {
+    return;
+  }
+
+  const remotes = await git.getRemotes(true);
+  const targetRemote = remotes.find(r => r.name === remoteName);
+  if (!targetRemote) {
+    throw new Error(`Remote '${remoteName}' not found`);
+  }
+
+  const remoteUrl = targetRemote.refs.push || targetRemote.refs.fetch;
+  const nextRemoteUrl = buildRemoteUrlWithAuth(remoteUrl, auth);
+  if (!nextRemoteUrl || nextRemoteUrl === remoteUrl) {
+    return;
+  }
+
+  await git.remote(['set-url', remoteName, nextRemoteUrl]);
+};
+
 // Check if Git is installed and accessible
 ipcMain.handle('git:check-installed', async () => {
   try {
@@ -220,7 +289,11 @@ ipcMain.handle('git:add', async (event, { repoPath, files }) => {
   try {
     const validatedPath = validateRepoPath(repoPath);
     const git = simpleGit(validatedPath);
+    const attributesUpdated = ensureBinaryArchiveAttributes(validatedPath);
     await git.add(files); // files can be string or array
+    if (attributesUpdated) {
+      await git.add('.gitattributes');
+    }
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -251,23 +324,7 @@ ipcMain.handle('git:push', async (event, { repoPath, remote = 'origin', branch =
     const validatedPath = validateRepoPath(repoPath);
     const git = simpleGit(validatedPath);
 
-    // Get current remote URL and update with auth if needed
-    if (auth?.username && auth?.password) {
-      const remotes = await git.getRemotes(true);
-      const originRemote = remotes.find(r => r.name === remote);
-      if (originRemote) {
-        let remoteUrl = originRemote.refs.fetch || originRemote.refs.push;
-        // Update URL with credentials
-        const protocol = remoteUrl.startsWith('https://') ? 'https://' : 'http://';
-        const urlWithoutProtocol = remoteUrl.replace(/^https?:\/\//, '').replace(/^[^@]+@/, '');
-        const urlWithAuth = `${protocol}${encodeURIComponent(auth.username)}:${encodeURIComponent(auth.password)}@${urlWithoutProtocol}`;
-        
-        // Update remote URL temporarily (or use environment variables)
-        // For now, we'll use the URL with embedded credentials
-        await git.removeRemote(remote);
-        await git.addRemote(remote, urlWithAuth);
-      }
-    }
+    await setRemoteUrlWithAuthIfNeeded(git, remote, auth);
 
     const result = await git.push(remote, branch);
     return { success: true, result };
@@ -277,10 +334,11 @@ ipcMain.handle('git:push', async (event, { repoPath, remote = 'origin', branch =
 });
 
 // Pull from remote
-ipcMain.handle('git:pull', async (event, { repoPath, remote = 'origin', branch = 'main' }) => {
+ipcMain.handle('git:pull', async (event, { repoPath, remote = 'origin', branch = 'main', auth }) => {
   try {
     const validatedPath = validateRepoPath(repoPath);
     const git = simpleGit(validatedPath);
+    await setRemoteUrlWithAuthIfNeeded(git, remote, auth);
     const result = await git.pull(remote, branch);
     return { success: true, result };
   } catch (error) {

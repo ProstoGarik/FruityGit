@@ -3,15 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import LoginWindow from './Login/Login';
-import CreateRepo from './Repo/CreateRepo';
 import { GitService } from './Git/GitService';
-import { GiteaService } from './Git/GiteaService';
+import CreateRepo from './Repo/CreateRepo';
 import {
   getAccessToken,
   getRefreshToken,
   setTokens,
   clearTokens,
-  refreshAuthToken
+  refreshAuthToken,
+  fetchWithGitea,
+  getGiteaToken
 } from './Login/AuthService';
 
 function App() {
@@ -22,10 +23,8 @@ function App() {
   const [commits, setCommits] = useState([]);
   const [selectedCommit, setSelectedCommit] = useState(null);
   const [attachedFile, setAttachedFile] = useState(null);
-  // Single backend (auth + metadata API) - use your host IP or localhost when running locally
-  const serverPath = 'http://localhost:8081';
-  // Gitea URL - git operations go through Gitea
-  const giteaUrl = 'http://localhost:3000';
+  // Single backend (auth + metadata API) - ASP.NET server on port 3000 (also proxies Gitea)
+  const serverPath = 'http://localhost:3000';
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [localRepoPath, setLocalRepoPath] = useState(null);
   const [selectedRepo, setSelectedRepo] = useState(null);
@@ -39,37 +38,10 @@ function App() {
 
 
 
-
-  const fetchWithAuth = async (url, options = {}, isRetry = false) => {
-    const accessToken = getAccessToken();
-
-    // Only set JSON content type if not FormData and not already specified
-    const isFormData = options.body instanceof FormData;
-    const defaultHeaders = {
-      ...(!isFormData && { 'Content-Type': 'application/json' }), // Only set for non-FormData
-      ...(accessToken && { 'Authorization': `Bearer ${accessToken}` })
-    };
-
-    // Merge headers - options.headers takes precedence
-    const headers = {
-      ...defaultHeaders,
-      ...options.headers
-    };
-
-    let response = await fetch(url, { ...options, headers });
-
-    if (response.status === 401 && !isRetry) {
-      const newToken = await refreshAuthToken(serverPath);
-      if (newToken) {
-        headers.Authorization = `Bearer ${newToken}`;
-        return fetchWithAuth(url, { ...options, headers }, true);
-      } else {
-        handleLogout();
-        throw new Error('Session expired. Please login again.');
-      }
-    }
-
-    return response;
+  const getRepoInfo = async (owner, repo) => {
+    const response = await fetchWithGitea(`http://localhost:3001/api/v1/repos/${owner}/${repo}`, { method: 'GET' });
+    if (!response.ok) throw new Error('Failed to get repository info');
+    return response.json();
   };
 
   const handleLogin = () => {
@@ -162,7 +134,7 @@ function App() {
 
       // Get local repo path or clone if needed
       let localPath = repoPathMap[selectedRepo];
-      
+
       if (!localPath) {
         // Need to clone the repo first
         const clonePath = await window.electronAPI.openFolderDialog();
@@ -172,25 +144,8 @@ function App() {
         }
 
         // Get Gitea URL from server
-        const urlResponse = await fetchWithAuth(
-          `${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/url`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              Id: user.id,
-              Name: user.name,
-              Email: user.email
-            })
-          }
-        );
-
-        if (!urlResponse.ok) {
-          throw new Error('Failed to get repository URL');
-        }
-
-        const urlData = await urlResponse.json();
-        const giteaRepoUrl = urlData.Url;
+        const repoInfo = await getRepoInfo(user.name, selectedRepo);
+        const giteaRepoUrl = repoInfo.clone_url;
 
         // Clone using simple-git
         const cloneResult = await GitService.cloneRepo(giteaRepoUrl, clonePath, user);
@@ -245,60 +200,28 @@ function App() {
 
   const handleShowRepo = async (repo) => {
     if (!repo || !user) return;
-
     try {
-      // Check if we have a local clone
+      // Проверяем, есть ли локальная копия
       const localPath = repoPathMap[repo];
-      
       if (localPath) {
-        // Use local git history via simple-git
-        try {
-          const localCommits = await GitService.getLocalHistory(localPath);
-          setCommits(localCommits);
-          return;
-        } catch (error) {
-          console.warn('Failed to get local history, will try to clone:', error);
-        }
-      }
-
-      // If no local clone, get Gitea URL and clone
-      const urlResponse = await fetchWithAuth(
-        `${serverPath}/api/git/${encodeURIComponent(repo)}/url`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            Id: user.id,
-            Name: user.name,
-            Email: user.email
-          })
-        }
-      );
-
-      if (urlResponse.status === 401) {
-        alert("You don't have access to this private repository");
+        const localCommits = await GitService.getLocalHistory(localPath);
+        setCommits(localCommits);
         return;
       }
 
-      if (!urlResponse.ok) {
-        throw new Error('Error getting repository URL');
-      }
-
-      const urlData = await urlResponse.json();
-      const giteaRepoUrl = urlData.Url;
-
-      // Prompt user to clone or use a temp directory
+      // Если нет — предлагаем выбрать папку для клонирования
       const clonePath = await window.electronAPI.openFolderDialog();
       if (!clonePath) {
         alert('Please select a folder to clone the repository');
         return;
       }
 
-      await GitService.cloneRepo(giteaRepoUrl, clonePath, user);
+      const repoInfo = await getRepoInfo(user.name, repo);
+      const giteaRepoUrl = repoInfo.clone_url;
+      await GitService.cloneRepo(giteaRepoUrl, clonePath, user); // user пока можно оставить, но он не используется
       setRepoPathMap(prev => ({ ...prev, [repo]: clonePath }));
       setLocalRepoPath(clonePath);
 
-      // Get history from cloned repo
       const localCommits = await GitService.getLocalHistory(clonePath);
       setCommits(localCommits);
     } catch (error) {
@@ -332,31 +255,9 @@ function App() {
 
     setIsLoadingRepos(true);
     try {
-      const response = await fetchWithAuth(
-        `${serverPath}/api/git/repositories`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            Id: user.id,
-            Name: user.name,
-            Email: user.email
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error getting repositories');
-      }
-
-      const data = await response.json();
-      console.log('Server response:', data); // Keep this for debugging
-
-      // Use the correct property name (lowercase 'repositories')
-      setRepos(data.repositories || []); // Changed from data.Repositories to data.repositories
+      const response = await fetchWithGitea('http://localhost:3001/api/v1/user/repos', { method: 'GET' });
+      const repos = await response.json();
+      setRepos(repos.map(r => r.name));
     } catch (error) {
       console.error('Refresh repo error:', error);
       alert(error.message);
@@ -394,37 +295,21 @@ ${formatCommitMessage(commit.message)}`
     }
 
     try {
-      // Clone to a temporary location, then zip it
+      // Запрашиваем у пользователя папку для сохранения репозитория
       const tempPath = await window.electronAPI.openFolderDialog();
       if (!tempPath) return;
 
-      // Get Gitea URL
-      const urlResponse = await fetchWithAuth(
-        `${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/url`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            Id: user.id,
-            Name: user.name,
-            Email: user.email
-          })
-        }
-      );
+      // Получаем информацию о репозитории из Gitea (clone_url и другие данные)
+      const repoInfo = await getRepoInfo(user.name, selectedRepo);
+      const giteaRepoUrl = repoInfo.clone_url;
 
-      if (!urlResponse.ok) {
-        throw new Error('Failed to get repository URL');
-      }
-
-      const urlData = await urlResponse.json();
-      const giteaRepoUrl = urlData.Url;
+      // Формируем полный путь клонирования: выбранная папка + имя репозитория
       const clonePath = window.electronAPI.pathJoin(tempPath, selectedRepo);
 
-      // Clone the repo
+      // Клонируем репозиторий через GitService (токен автоматически подставляется)
       await GitService.cloneRepo(giteaRepoUrl, clonePath, user);
 
-      // Note: For zipping, you might want to add a zip utility
-      // For now, just inform the user where it was cloned
+      // Уведомляем пользователя об успешном клонировании
       alert(`Repository cloned to: ${clonePath}\nYou can zip it manually if needed.`);
     } catch (error) {
       console.error('Download error:', error);
@@ -438,47 +323,20 @@ ${formatCommitMessage(commit.message)}`
       alert('Please select a repository and login first');
       return;
     }
-
     try {
       const localPath = await window.electronAPI.openFolderDialog();
-      if (!localPath) return; // User cancelled
+      if (!localPath) return;
 
-      // Get Gitea URL from server
-      const urlResponse = await fetchWithAuth(
-        `${serverPath}/api/git/${encodeURIComponent(selectedRepo)}/url`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            Id: user.id,
-            Name: user.name,
-            Email: user.email
-          })
-        }
-      );
+      const repoInfo = await getRepoInfo(user.name, selectedRepo);
+      const giteaRepoUrl = repoInfo.clone_url;
 
-      if (!urlResponse.ok) {
-        throw new Error('Failed to get repository URL');
-      }
-
-      const urlData = await urlResponse.json();
-      const giteaRepoUrl = urlData.Url;
-
-      // Show loading state
       setIsLoadingRepos(true);
-
-      const result = await GitService.cloneRepo(giteaRepoUrl, localPath, user);
-
-      // Update your repoPathMap
+      await GitService.cloneRepo(giteaRepoUrl, localPath, user);
       setRepoPathMap(prev => ({ ...prev, [selectedRepo]: localPath }));
       setLocalRepoPath(localPath);
-
       alert(`Repository cloned to: ${localPath}`);
-
-      // Optionally fetch local history
       const localCommits = await GitService.getLocalHistory(localPath);
       setCommits(localCommits);
-
     } catch (error) {
       console.error('Clone error:', error);
       alert(`Failed to clone: ${error.message}`);
@@ -532,17 +390,14 @@ ${formatCommitMessage(commit.message)}`
 
   // Handle "Push to Server" (sync local -> remote)
   const handlePushToServer = async () => {
-    if (!localRepoPath || !user) {
-      alert('Please select a local repository and login');
+    if (!localRepoPath) {
+      alert('Please select a local repository');
       return;
     }
-
     try {
       setIsLoadingRepos(true);
-      await GitService.pushToServer(localRepoPath, user);
+      await GitService.pushToServer(localRepoPath, 'main');
       alert('Changes pushed to server successfully!');
-
-      // Refresh server repo list/history
       await handleRefreshRepo();
       if (selectedRepo) {
         await handleShowRepo(selectedRepo);
@@ -555,6 +410,7 @@ ${formatCommitMessage(commit.message)}`
     }
   };
 
+
   // Handle "Pull from Server" (sync remote -> local)
   const handlePullFromServer = async () => {
     if (!localRepoPath) {
@@ -564,7 +420,7 @@ ${formatCommitMessage(commit.message)}`
 
     try {
       setIsLoadingRepos(true);
-      await window.electronAPI.git.pull(localRepoPath, 'origin', 'main');
+      await GitService.pullFromServer(localRepoPath, 'main');
       alert('Pulled latest changes from server');
 
       // Refresh local history

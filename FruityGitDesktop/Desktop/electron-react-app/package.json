@@ -19,10 +19,10 @@
   "main": "main.js",
   "homepage": "./",
   "scripts": {
-    "start": "react-scripts start",
+    "start": "cross-env PORT=3002 react-scripts start",
     "build": "react-scripts build",
     "electron": "electron .",
-    "dev": "concurrently \"cross-env BROWSER=none npm start\" \"wait-on tcp:127.0.0.1:3000 && electron .\"",
+    "dev": "concurrently \"cross-env BROWSER=none PORT=3002 npm start\" \"wait-on tcp:127.0.0.1:3002 && electron .\"",
     "postinstall": "electron-builder install-app-deps",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder"

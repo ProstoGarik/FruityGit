@@ -4,10 +4,10 @@ import './Login.css';
 const LoginWindow = ({ onClose, serverPath }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [name, setName] = useState(''); // For registration
+    const [name, setName] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [isRegistering, setIsRegistering] = useState(false); // Toggle between login/register
+    const [isRegistering, setIsRegistering] = useState(false);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -23,13 +23,8 @@ const LoginWindow = ({ onClose, serverPath }) => {
         try {
             const response = await fetch(`${serverPath}/api/auth/login`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    Email: email,
-                    Password: password
-                }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Email: email, Password: password }),
             });
 
             const data = await response.json();
@@ -38,15 +33,19 @@ const LoginWindow = ({ onClose, serverPath }) => {
                 throw new Error(data.message || 'Login failed');
             }
 
-            // Store tokens in localStorage
-            localStorage.setItem('accessToken', data.token); // Note lowercase 'token'
-            localStorage.setItem('refreshToken', data.refreshToken); // Note lowercase 'refreshToken'
+            localStorage.setItem('accessToken', data.token);      // было data.Token
+            localStorage.setItem('refreshToken', data.refreshToken); // было data.RefreshToken
+            if (data.giteaToken) {
+                localStorage.setItem('giteaToken', data.giteaToken);
+            } else {
+                localStorage.removeItem('giteaToken');
+            }
 
             onClose({
-                id: data.user.id, // Changed from data.User.Id to data.user.id
-                name: data.user.userName, // Changed from data.User.UserName
+                id: data.user.id,         // было data.user.id (если там тоже camelCase)
+                name: data.user.userName, // было data.user.userName
                 email: email,
-                roles: ['User'] // Assuming default role since it's not in the response
+                roles: ['User']
             });
         } catch (err) {
             console.error('Login error:', err);
@@ -70,11 +69,9 @@ const LoginWindow = ({ onClose, serverPath }) => {
         try {
             const response = await fetch(`${serverPath}/api/auth/register`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    UserName: name,  // Add username to the request
+                    UserName: name,
                     Email: email,
                     Password: password,
                     RoleName: 'User'
@@ -87,13 +84,17 @@ const LoginWindow = ({ onClose, serverPath }) => {
                 throw new Error(data.message || 'Registration failed');
             }
 
-            // Store tokens in localStorage
-            localStorage.setItem('accessToken', data.token);
-            localStorage.setItem('refreshToken', data.refreshToken);
+            localStorage.setItem('accessToken', data.token);      // было data.Token
+            localStorage.setItem('refreshToken', data.refreshToken); // было data.RefreshToken
+            if (data.giteaToken) {
+                localStorage.setItem('giteaToken', data.giteaToken);
+            } else {
+                localStorage.removeItem('giteaToken');
+            }
 
             onClose({
-                id: data.user.id,
-                name: name, // Use the username from state
+                id: data.user.id,         // было data.user.id (если там тоже camelCase)
+                name: data.user.userName, // было data.user.userName
                 email: email,
                 roles: ['User']
             });

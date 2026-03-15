@@ -52,8 +52,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     push: (repoPath, remote = 'origin', branch = 'main', auth = null) =>
       ipcRenderer.invoke('git:push', { repoPath, remote, branch, auth }),
 
-    pull: (repoPath, remote = 'origin', branch = 'main') =>
-      ipcRenderer.invoke('git:pull', { repoPath, remote, branch }),
+    pull: (repoPath, remote = 'origin', branch = 'main', auth = null) =>
+      ipcRenderer.invoke('git:pull', { repoPath, remote, branch, auth }),
 
     log: (repoPath, maxCount = 20) =>
       ipcRenderer.invoke('git:log', { repoPath, maxCount }),

@@ -1,6 +1,7 @@
 using FruityGitServer.Authentication;
 using FruityGitServer.Models;
 using FruityGitServer.Models.Auth;
+using FruityGitServer.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,17 +16,20 @@ public class AuthController : ControllerBase
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
     private readonly JwtTokenHandler _jwtTokenHandler;
+    private readonly GiteaService _giteaService;
 
     public AuthController(
         RoleManager<IdentityRole> roleManager,
         UserManager<User> userManager,
         SignInManager<User> signInManager,
-        JwtTokenHandler jwtTokenHandler)
+        JwtTokenHandler jwtTokenHandler,
+        GiteaService giteaService)
     {
         _roleManager = roleManager;
         _userManager = userManager;
         _signInManager = signInManager;
         _jwtTokenHandler = jwtTokenHandler;
+        _giteaService = giteaService;
     }
 
     [HttpPost("login")]
@@ -46,11 +50,15 @@ public class AuthController : ControllerBase
         await _userManager.UpdateAsync(user);
         var token = _jwtTokenHandler.GenerateJwtToken(user, userRoles.FirstOrDefault() ?? "User");
 
+        await _giteaService.CreateUserAsync(user.UserName!, user.Email!, request.Password);
+        var giteaToken = await _giteaService.CreateUserTokenAsync(user.UserName!, request.Password);
+
         return Ok(new SecurityResponse
         {
             User = user,
             Token = token,
-            RefreshToken = originalRefreshToken
+            RefreshToken = originalRefreshToken,
+            GiteaToken = giteaToken // новое поле
         });
     }
 
@@ -83,11 +91,15 @@ public class AuthController : ControllerBase
         var token = _jwtTokenHandler.GenerateJwtToken(user, roleName);
         await _userManager.UpdateAsync(user);
 
+        await _giteaService.CreateUserAsync(user.UserName!, user.Email!, request.Password);
+        var giteaToken = await _giteaService.CreateUserTokenAsync(user.UserName!, request.Password);
+
         return Ok(new SecurityResponse
         {
             User = user,
             Token = token,
-            RefreshToken = originalRefreshToken
+            RefreshToken = originalRefreshToken,
+            GiteaToken = giteaToken // новое поле
         });
     }
 

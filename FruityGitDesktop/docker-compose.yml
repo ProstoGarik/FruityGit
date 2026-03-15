@@ -1,89 +1,111 @@
-# Minimal stack: Postgres + Gitea + single backend (auth + metadata API).
-# Gitea handles all git operations, ASP server handles auth and metadata.
+  # Minimal stack: Postgres + Gitea + single backend (auth + metadata API).
+  # Gitea handles all git operations, ASP server handles auth and metadata.
 
-services:
-  postgres:
-    container_name: postgres_container
-    image: postgres:14.8-alpine3.18
-    environment:
-      POSTGRES_DB: "FruityDB"
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "123Secret"
-      PGDATA: "/var/lib/postgresql/data/pgdata"
-    volumes:
-      - fruity-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d FruityDB"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
-    networks:
-      - backend
+  services:
+    postgres:
+      container_name: postgres_container
+      image: postgres:14.8-alpine3.18
+      environment:
+        POSTGRES_DB: "FruityDB"
+        POSTGRES_USER: "postgres"
+        POSTGRES_PASSWORD: "123Secret"
+        PGDATA: "/var/lib/postgresql/data/pgdata"
+      volumes:
+        - fruity-data:/var/lib/postgresql/data
+      ports:
+        - "5432:5432"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U postgres -d FruityDB"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+        start_period: 10s
+      restart: unless-stopped
+      networks:
+        - backend
 
-  gitea:
-    container_name: gitea_container
-    image: gitea/gitea:latest
-    environment:
-      - USER_UID=1000
-      - USER_GID=1000
-      - GITEA__database__DB_TYPE=postgres
-      - GITEA__database__HOST=postgres:5432
-      - GITEA__database__NAME=gitea
-      - GITEA__database__USER=postgres
-      - GITEA__database__PASSWD=123Secret
-      - GITEA__database__SSL_MODE=disable
-      - GITEA__server__DOMAIN=localhost
-      - GITEA__server__HTTP_PORT=3000
-      - GITEA__server__ROOT_URL=http://localhost:3000
-      - GITEA__server__SSH_DOMAIN=localhost
-      - GITEA__server__SSH_PORT=2222
-      - GITEA__service__DISABLE_REGISTRATION=false
-    volumes:
-      - gitea-data:/data
-      - gitea-config:/etc/gitea
-    ports:
-      - "3000:3000"
-      - "2222:22"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - backend
+    gitea:
+      container_name: gitea_container
+      image: gitea/gitea:latest
+      environment:
+        - USER_UID=1000
+        - USER_GID=1000
+        - GITEA__database__DB_TYPE=postgres
+        - GITEA__database__HOST=postgres:5432
+        - GITEA__database__NAME=gitea
+        - GITEA__database__USER=postgres
+        - GITEA__database__PASSWD=123Secret
+        - GITEA__database__SSL_MODE=disable
 
-  fruitygitserver:
-    container_name: fruity-server
-    build:
-      context: .
-      dockerfile: src/FruityGitServer/Dockerfile
-    ports:
-      - "8081:8080"
-    networks:
-      - backend
-    depends_on:
-      postgres:
-        condition: service_healthy
-      gitea:
-        condition: service_started
-    environment:
-      - ASPNETCORE_URLS=http://+:8080
-      - APP_NAME=fruitygit
-      - DB_HOST=postgres
-      - POSTGRES_DB=FruityDB
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=123Secret
-      - GITEA_URL=http://gitea:3000
-    restart: unless-stopped
+        # ---- Внешний URL (через прокси) ----
+        # Gitea runs on port 3001 internally, but is accessed through ASP.NET proxy on port 3000
+        - GITEA__server__DOMAIN=localhost
+        - GITEA__server__HTTP_PORT=3001            # Internal port Gitea listens on
+        - GITEA__server__ROOT_URL=http://localhost:3000/gitea  # External URL through ASP.NET proxy
+        - GITEA__server__SSH_DOMAIN=localhost
+        - GITEA__server__SSH_PORT=2222
 
-volumes:
-  fruity-data:
-  gitea-data:
-  gitea-config:
+        # ---- Аутентификация через reverse proxy ----
+        - GITEA__auth__ENABLE_REVERSE_PROXY_AUTHENTICATION=true
+        - GITEA__auth__ENABLE_REVERSE_PROXY_AUTO_REGISTRATION=true
+        - GITEA__auth__ENABLE_PASSWORD_SIGNIN_FORM=false   # отключаем форму входа
+        - GITEA__auth__ENABLE_BASIC_AUTHENTICATION=true    # нужно для git операций (clone/push)
+        - GITEA__service__ENABLE_REVERSE_PROXY_AUTHENTICATION_API=true     # запрещаем регистрацию
+        
 
-networks:
-  backend:
-    driver: bridge
+        - GITEA__log__MODE=console
+        - GITEA__log__LEVEL=Trace
+        - GITEA__log__ROUTER=console
+        - GITEA__log__ROUTER_LEVEL=Trace
+
+        # ---- CORS (если нужно) ----
+        - GITEA__cors__ENABLED=true
+        - GITEA__cors__ALLOW_DOMAIN=*
+      volumes:
+        - gitea-data:/data
+        - gitea-config:/etc/gitea
+      ports:
+        - "3001:3001"      # оставлен для прямого доступа (отладка), но не используется
+        - "2222:22"
+      depends_on:
+        postgres:
+          condition: service_healthy
+      restart: unless-stopped
+      networks:
+        - backend
+
+    fruitygitserver:
+      container_name: fruity-server
+      build:
+        context: .
+        dockerfile: src/FruityGitServer/Dockerfile
+      ports:
+        - "3000:8080"          # Main port: ASP.NET server + Gitea proxy
+        - "8081:8080"          # Legacy port for backward compatibility
+      networks:
+        - backend
+      depends_on:
+        postgres:
+          condition: service_healthy
+        gitea:
+          condition: service_started
+      environment:
+        - ASPNETCORE_URLS=http://+:8080
+        - APP_NAME=fruitygit
+        - DB_HOST=postgres
+        - POSTGRES_DB=FruityDB
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=123Secret
+        - Gitea__BaseUrl=http://gitea:3001          # Internal Gitea address (for proxy)
+        - GITEA_PUBLIC_URL=http://localhost:3000/gitea # External Gitea URL through ASP.NET proxy
+        - Gitea__AdminToken=cbb7afc6cd5eeee50ff6480af4a00226bfeb8538
+      restart: unless-stopped
+
+  volumes:
+    fruity-data:
+    gitea-data:
+    gitea-config:
+
+  networks:
+    backend:
+      driver: bridge
