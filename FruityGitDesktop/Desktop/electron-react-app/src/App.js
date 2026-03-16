@@ -52,6 +52,54 @@ function App() {
     }
   };
 
+  const isGitRepositoryPath = async (candidatePath) => {
+    if (!candidatePath) return false;
+    const dotGitPath = window.electronAPI.pathJoin(candidatePath, '.git');
+    return await window.electronAPI.fileExists(dotGitPath);
+  };
+
+  const resolveLocalRepoPath = async (selectedFolder, repo) => {
+    if (!selectedFolder || !repo) return null;
+
+    if (await isGitRepositoryPath(selectedFolder)) {
+      return selectedFolder;
+    }
+
+    const repoSubfolder = window.electronAPI.pathJoin(selectedFolder, repo);
+    if (await isGitRepositoryPath(repoSubfolder)) {
+      return repoSubfolder;
+    }
+
+    return null;
+  };
+
+  const ensureLocalRepoFor = async (repo, ownerName) => {
+    const mappedPath = repoPathMap[repo];
+    if (mappedPath && await isGitRepositoryPath(mappedPath)) {
+      return mappedPath;
+    }
+
+    const selectedFolder = await window.electronAPI.openFolderDialog();
+    if (!selectedFolder) {
+      return null;
+    }
+
+    const existingRepoPath = await resolveLocalRepoPath(selectedFolder, repo);
+    if (existingRepoPath) {
+      setRepoPathMap(prev => ({ ...prev, [repo]: existingRepoPath }));
+      setLocalRepoPath(existingRepoPath);
+      return existingRepoPath;
+    }
+
+    const repoInfo = await getRepoInfo(ownerName, repo);
+    const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
+    const cloneTargetPath = window.electronAPI.pathJoin(selectedFolder, repo);
+    await GitService.cloneRepo(giteaRepoUrl, cloneTargetPath, user);
+    setRepoPathMap(prev => ({ ...prev, [repo]: cloneTargetPath }));
+    setLocalRepoPath(cloneTargetPath);
+    return cloneTargetPath;
+  };
+
 
 
   const getRepoInfo = async (owner, repo) => {
@@ -125,25 +173,6 @@ function App() {
       const filePath = await window.electronAPI.openFlpDialog();
       if (!filePath) return;
 
-      const ensureLocalRepoForSelected = async () => {
-        let localPath = repoPathMap[selectedRepo];
-        if (localPath) {
-          return localPath;
-        }
-
-        const clonePath = await window.electronAPI.openFolderDialog();
-        if (!clonePath) {
-          return null;
-        }
-
-        const repoInfo = await getRepoInfo(user.name, selectedRepo);
-        const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
-        await GitService.cloneRepo(giteaRepoUrl, clonePath, user);
-        setRepoPathMap(prev => ({ ...prev, [selectedRepo]: clonePath }));
-        setLocalRepoPath(clonePath);
-        return clonePath;
-      };
-
       const stageFileInLocalRepo = async (sourcePath, localPath) => {
         const fileContent = await window.electronAPI.readFile(sourcePath);
         if (!fileContent) {
@@ -166,7 +195,7 @@ function App() {
       if (processWithPython) {
         // Call IPC to run Python in main
         const zipPath = await window.electronAPI.runPythonProcessor(filePath);
-        const localPath = await ensureLocalRepoForSelected();
+        const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
         if (!localPath) {
           alert('Please select a folder to clone the repository');
           return;
@@ -176,7 +205,7 @@ function App() {
         alert('File added to local repository. Click Commit to create a commit.');
         return stagedPath;
       } else {
-        const localPath = await ensureLocalRepoForSelected();
+        const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
         if (!localPath) {
           alert('Please select a folder to clone the repository');
           return;
@@ -242,28 +271,13 @@ function App() {
   const handleShowRepo = async (repo) => {
     if (!repo || !user) return;
     try {
-      // Проверяем, есть ли локальная копия
-      const localPath = repoPathMap[repo];
-      if (localPath) {
-        const localCommits = await GitService.getLocalHistory(localPath);
-        setCommits(localCommits);
-        return;
-      }
-
-      // Если нет — предлагаем выбрать папку для клонирования
-      const clonePath = await window.electronAPI.openFolderDialog();
-      if (!clonePath) {
+      const localPath = await ensureLocalRepoFor(repo, user.name);
+      if (!localPath) {
         alert('Please select a folder to clone the repository');
         return;
       }
 
-      const repoInfo = await getRepoInfo(user.name, repo);
-      const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
-      await GitService.cloneRepo(giteaRepoUrl, clonePath, user); // user пока можно оставить, но он не используется
-      setRepoPathMap(prev => ({ ...prev, [repo]: clonePath }));
-      setLocalRepoPath(clonePath);
-
-      const localCommits = await GitService.getLocalHistory(clonePath);
+      const localCommits = await GitService.getLocalHistory(localPath);
       setCommits(localCommits);
     } catch (error) {
       console.error('Show repo error:', error);
@@ -281,9 +295,10 @@ function App() {
     try {
       const folderPath = await window.electronAPI.openFolderDialog();
       if (folderPath) {
-        // Update map and local state
-        setRepoPathMap(prev => ({ ...prev, [selectedRepo]: folderPath }));
-        setLocalRepoPath(folderPath);
+        const resolvedPath = await resolveLocalRepoPath(folderPath, selectedRepo);
+        const repoPath = resolvedPath || window.electronAPI.pathJoin(folderPath, selectedRepo);
+        setRepoPathMap(prev => ({ ...prev, [selectedRepo]: repoPath }));
+        setLocalRepoPath(repoPath);
       }
     } catch (error) {
       console.error('Error choosing folder:', error);
@@ -409,19 +424,8 @@ ${formatCommitMessage(commit.message)}`
     }
 
     try {
-      // Запрашиваем у пользователя папку для сохранения репозитория
-      const tempPath = await window.electronAPI.openFolderDialog();
-      if (!tempPath) return;
-
-      // Получаем информацию о репозитории из Gitea (clone_url и другие данные)
-      const repoInfo = await getRepoInfo(user.name, selectedRepo);
-      const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
-
-      // Формируем полный путь клонирования: выбранная папка + имя репозитория
-      const clonePath = window.electronAPI.pathJoin(tempPath, selectedRepo);
-
-      // Клонируем репозиторий через GitService (токен автоматически подставляется)
-      await GitService.cloneRepo(giteaRepoUrl, clonePath, user);
+      const clonePath = await ensureLocalRepoFor(selectedRepo, user.name);
+      if (!clonePath) return;
 
       // Уведомляем пользователя об успешном клонировании
       alert(`Repository cloned to: ${clonePath}\nYou can zip it manually if needed.`);
@@ -438,14 +442,10 @@ ${formatCommitMessage(commit.message)}`
       return;
     }
     try {
-      const localPath = await window.electronAPI.openFolderDialog();
+      const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
       if (!localPath) return;
 
-      const repoInfo = await getRepoInfo(user.name, selectedRepo);
-      const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
-
       setIsLoadingRepos(true);
-      await GitService.cloneRepo(giteaRepoUrl, localPath, user);
       setRepoPathMap(prev => ({ ...prev, [selectedRepo]: localPath }));
       setLocalRepoPath(localPath);
       alert(`Repository cloned to: ${localPath}`);
