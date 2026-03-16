@@ -104,7 +104,7 @@ export const GitService = {
       throw new Error(statusResult.error);
     }
     const status = statusResult.status;
-    if (status.files?.length > 0 || !status.isClean()) {
+    if (status.files?.length > 0 || !status.isClean) {
       return await this.pushToServer(repoPath, branch);
     }
     return { upToDate: true };

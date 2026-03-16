@@ -277,7 +277,22 @@ ipcMain.handle('git:status', async (event, { repoPath }) => {
   try {
     const validatedPath = validateRepoPath(repoPath);
     const git = simpleGit(validatedPath);
-    const status = await git.status();
+    const rawStatus = await git.status();
+    const status = {
+      not_added: rawStatus.not_added ?? [],
+      conflicted: rawStatus.conflicted ?? [],
+      created: rawStatus.created ?? [],
+      deleted: rawStatus.deleted ?? [],
+      modified: rawStatus.modified ?? [],
+      renamed: rawStatus.renamed ?? [],
+      staged: rawStatus.staged ?? [],
+      ahead: rawStatus.ahead ?? 0,
+      behind: rawStatus.behind ?? 0,
+      current: rawStatus.current ?? null,
+      tracking: rawStatus.tracking ?? null,
+      files: rawStatus.files ?? [],
+      isClean: rawStatus.isClean()
+    };
     return { success: true, status };
   } catch (error) {
     return { success: false, error: error.message };

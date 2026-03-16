@@ -36,7 +36,6 @@
   flex: 1;
   gap: 10px;
   padding: 10px;
-  position: relative;
 }
 
 .left-column {
@@ -57,7 +56,6 @@
   padding: 15px;
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
 .section-title {
@@ -96,9 +94,6 @@
   border: 1px solid #ddd;
   border-radius: 4px;
   flex: 1;
-  position: relative;
-  z-index: 3;
-  pointer-events: auto;
 }
 
 .description-input {
@@ -108,9 +103,6 @@
   border-radius: 4px;
   margin-top: 10px;
   resize: vertical;
-  position: relative;
-  z-index: 3;
-  pointer-events: auto;
 }
 
 .send-button {
@@ -130,9 +122,6 @@
   border: 1px solid #ddd;
   border-radius: 4px;
   width: 200px;
-  position: relative;
-  z-index: 3;
-  pointer-events: auto;
 }
 
 .repo-list-container {

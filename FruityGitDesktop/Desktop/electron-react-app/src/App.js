@@ -472,7 +472,7 @@ ${formatCommitMessage(commit.message)}`
         throw new Error(statusResult.error || 'Failed to get repository status');
       }
 
-      if (statusResult.status.isClean()) {
+      if (statusResult.status.isClean) {
         alert('No staged changes found. Use Attach file first.');
         return;
       }
