@@ -4,6 +4,30 @@ import { getGiteaToken } from '../Login/AuthService';
 
 
 export const GitService = {
+  getGitHttpAuth(user = null) {
+    const giteaToken = getGiteaToken();
+    if (!giteaToken) {
+      throw new Error('Gitea token not found. Please log in again.');
+    }
+
+    let username = user?.name;
+    if (!username) {
+      try {
+        const storedUserRaw = localStorage.getItem('user');
+        const storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+        username = storedUser?.name || storedUser?.login || storedUser?.email?.split('@')?.[0];
+      } catch (error) {
+        console.warn('Failed to parse stored user for Git auth:', error);
+      }
+    }
+
+    return {
+      username: username || 'oauth2',
+      password: giteaToken,
+      token: giteaToken
+    };
+  },
+
   // Check prerequisites
   async checkGitInstalled() {
     const result = await window.electronAPI.git.checkInstalled();
@@ -22,12 +46,9 @@ export const GitService = {
 
   // Clone from Gitea
   async cloneRepo(remoteUrl, localPath, user) {
-    const giteaToken = getGiteaToken();
-    if (!giteaToken) {
-      throw new Error('Gitea token not found. Please log in again.');
-    }
-    const cloneUrl = GiteaService.buildAuthenticatedUrl(remoteUrl, giteaToken);
-    const result = await window.electronAPI.git.clone(cloneUrl, localPath);
+    const gitAuth = this.getGitHttpAuth(user);
+    const cloneUrl = GiteaService.buildAuthenticatedUrl(remoteUrl, gitAuth.username, gitAuth.password);
+    const result = await window.electronAPI.git.clone(cloneUrl, localPath, gitAuth);
     if (!result.success) throw new Error(result.error);
     return result;
   },
@@ -58,22 +79,15 @@ export const GitService = {
 
   // Push local changes to Gitea
   async pushToServer(repoPath, branch = 'main') {
-    const giteaToken = getGiteaToken();
-    if (!giteaToken) {
-      throw new Error('Gitea token not found. Please log in again.');
-    }
-    const result = await window.electronAPI.git.push(repoPath, 'origin', branch, { token: giteaToken });
+    const gitAuth = this.getGitHttpAuth();
+    const result = await window.electronAPI.git.push(repoPath, 'origin', branch, gitAuth);
     if (!result.success) throw new Error(result.error);
     return result;
   },
 
   async pullFromServer(repoPath, branch = 'main') {
-    const giteaToken = getGiteaToken();
-    if (!giteaToken) {
-      throw new Error('Gitea token not found. Please log in again.');
-    }
-
-    const result = await window.electronAPI.git.pull(repoPath, 'origin', branch, { token: giteaToken });
+    const gitAuth = this.getGitHttpAuth();
+    const result = await window.electronAPI.git.pull(repoPath, 'origin', branch, gitAuth);
     if (!result.success) throw new Error(result.error);
     return result;
   },

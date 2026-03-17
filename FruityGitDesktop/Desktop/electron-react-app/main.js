@@ -187,7 +187,8 @@ const buildRemoteUrlWithAuth = (remoteUrl, auth) => {
   }
 
   if (auth.token) {
-    return `${protocol}${encodeURIComponent(auth.token)}@${urlWithoutProtocol}`;
+    // Token-only fallback: use token as HTTP password with a synthetic username.
+    return `${protocol}oauth2:${encodeURIComponent(auth.token)}@${urlWithoutProtocol}`;
   }
 
   return remoteUrl;
