@@ -57,17 +57,14 @@ if (!gotTheLock) {
 
 // IPC handlers (existing)
 ipcMain.handle('extract-zip', async (event, zipPath, extractPath) => {
-  return new Promise((resolve, reject) => {
-    try {
-      const extract = require('extract-zip');
-      extract(zipPath, { dir: extractPath }, err => {
-        if (err) reject(err);
-        else resolve();
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
+  try {
+    const extract = require('extract-zip');
+    await extract(zipPath, { dir: extractPath });
+    return { success: true };
+  } catch (error) {
+    console.error('ZIP extraction failed:', error);
+    throw error;
+  }
 });
 
 ipcMain.handle('open-save-dialog', async (event, options) => {
