@@ -71,10 +71,16 @@ public class GiteaProxyMiddleware
             // Check if this is an API call (Gitea API endpoints can use reverse proxy auth too)
             var isApiCall = remainingPath.Value?.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) == true;
             
-            // Extract Gitea authentication token from custom headers (if present)
-            // These are fallback options if reverse proxy auth doesn't work
+            // Extract authentication from headers for fallback scenarios.
             string? giteaToken = null;
             string? giteaBasicAuth = null;
+            string? incomingAuthorization = null;
+
+            if (context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+            {
+                incomingAuthorization = authHeader.ToString();
+            }
+
             if (isApiCall)
             {
                 if (context.Request.Headers.TryGetValue("X-Gitea-Token", out var tokenHeader))
@@ -90,9 +96,9 @@ public class GiteaProxyMiddleware
                 // (e.g. "token <sha1>" or "Basic <base64>"), treat it as API auth fallback.
                 if (string.IsNullOrEmpty(giteaToken) &&
                     string.IsNullOrEmpty(giteaBasicAuth) &&
-                    context.Request.Headers.TryGetValue("Authorization", out var authHeader))
+                    !string.IsNullOrEmpty(incomingAuthorization))
                 {
-                    var authValue = authHeader.ToString();
+                    var authValue = incomingAuthorization;
                     if (authValue.StartsWith("token ", StringComparison.OrdinalIgnoreCase))
                     {
                         giteaToken = authValue.Substring("token ".Length).Trim();
@@ -114,7 +120,7 @@ public class GiteaProxyMiddleware
                     header.Key.Equals("X-Gitea-Basic-Auth", StringComparison.OrdinalIgnoreCase))
                     continue;
                 
-                // Skip ASP.NET Authorization header - we'll use reverse proxy headers or Gitea auth
+                // Skip incoming Authorization here; we'll set it explicitly below.
                 if (header.Key.Equals("Authorization", StringComparison.OrdinalIgnoreCase))
                     continue;
 
@@ -151,6 +157,23 @@ public class GiteaProxyMiddleware
                     {
                         requestMessage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("token", giteaToken);
                         _logger.LogInformation("Using token auth fallback for API call");
+                    }
+                }
+
+                // For non-API git smart HTTP endpoints, forward original Authorization
+                // so git clone/fetch/push can authenticate with embedded credentials/token.
+                if (!isApiCall && !string.IsNullOrEmpty(incomingAuthorization))
+                {
+                    if (incomingAuthorization.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        requestMessage.Headers.Authorization = AuthenticationHeaderValue.Parse(incomingAuthorization);
+                        _logger.LogInformation("Forwarding Basic auth for non-API git request");
+                    }
+                    else if (incomingAuthorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ||
+                             incomingAuthorization.StartsWith("token ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        requestMessage.Headers.TryAddWithoutValidation("Authorization", incomingAuthorization);
+                        _logger.LogInformation("Forwarding Authorization header for non-API git request");
                     }
                 }
             }

@@ -52,6 +52,20 @@ function App() {
     }
   };
 
+  const parseRepoRef = (repoRef, fallbackOwner = null) => {
+    if (!repoRef) return { owner: fallbackOwner, name: null, fullName: null };
+    if (repoRef.includes('/')) {
+      const [owner, ...nameParts] = repoRef.split('/');
+      const name = nameParts.join('/');
+      return { owner, name, fullName: `${owner}/${name}` };
+    }
+    return {
+      owner: fallbackOwner,
+      name: repoRef,
+      fullName: fallbackOwner ? `${fallbackOwner}/${repoRef}` : repoRef
+    };
+  };
+
   const isGitRepositoryPath = async (candidatePath) => {
     if (!candidatePath) return false;
     const dotGitPath = window.electronAPI.pathJoin(candidatePath, '.git');
@@ -73,8 +87,13 @@ function App() {
     return null;
   };
 
-  const ensureLocalRepoFor = async (repo, ownerName) => {
-    const mappedPath = repoPathMap[repo];
+  const ensureLocalRepoFor = async (repoRef, ownerName) => {
+    const { owner, name: repo, fullName } = parseRepoRef(repoRef, ownerName);
+    if (!repo || !owner) {
+      throw new Error('Invalid repository reference');
+    }
+
+    const mappedPath = repoPathMap[fullName] || repoPathMap[repo];
     if (mappedPath && await isGitRepositoryPath(mappedPath)) {
       return mappedPath;
     }
@@ -86,16 +105,16 @@ function App() {
 
     const existingRepoPath = await resolveLocalRepoPath(selectedFolder, repo);
     if (existingRepoPath) {
-      setRepoPathMap(prev => ({ ...prev, [repo]: existingRepoPath }));
+      setRepoPathMap(prev => ({ ...prev, [repo]: existingRepoPath, [fullName]: existingRepoPath }));
       setLocalRepoPath(existingRepoPath);
       return existingRepoPath;
     }
 
-    const repoInfo = await getRepoInfo(ownerName, repo);
+    const repoInfo = await getRepoInfo(owner, repo);
     const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
     const cloneTargetPath = window.electronAPI.pathJoin(selectedFolder, repo);
     await GitService.cloneRepo(giteaRepoUrl, cloneTargetPath, user);
-    setRepoPathMap(prev => ({ ...prev, [repo]: cloneTargetPath }));
+    setRepoPathMap(prev => ({ ...prev, [repo]: cloneTargetPath, [fullName]: cloneTargetPath }));
     setLocalRepoPath(cloneTargetPath);
     return cloneTargetPath;
   };
@@ -200,10 +219,23 @@ function App() {
           alert('Please select a folder to clone the repository');
           return;
         }
-        const stagedPath = await stageFileInLocalRepo(zipPath, localPath);
-        setAttachedFile(stagedPath);
-        alert('File added to local repository. Click Commit to create a commit.');
-        return stagedPath;
+
+        // Extract ZIP into the repo and stage extracted contents (not the ZIP file)
+        const zipBaseName = window.electronAPI.pathBasename(zipPath).replace(/\.zip$/i, '');
+        const extractFolderName = `${zipBaseName}_${Date.now()}`;
+        const extractTo = window.electronAPI.pathJoin(localPath, 'uploads', extractFolderName);
+
+        await window.electronAPI.mkdir(extractTo, { recursive: true });
+        await window.electronAPI.extractZip(zipPath, extractTo);
+
+        const addResult = await window.electronAPI.git.add(localPath, extractTo);
+        if (!addResult.success) {
+          throw new Error(addResult.error || 'Failed to stage extracted files');
+        }
+
+        setAttachedFile(extractTo);
+        alert('Archive extracted and added to local repository. Click Commit to create a commit.');
+        return extractTo;
       } else {
         const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
         if (!localPath) {
@@ -240,8 +272,8 @@ function App() {
 
       if (!localRepoPath) {
         alert('Please select a local repository');
-        return;
-      }
+          return;
+        }
 
       await GitService.pushToServer(localRepoPath, 'main');
 
@@ -295,9 +327,13 @@ function App() {
     try {
       const folderPath = await window.electronAPI.openFolderDialog();
       if (folderPath) {
-        const resolvedPath = await resolveLocalRepoPath(folderPath, selectedRepo);
-        const repoPath = resolvedPath || window.electronAPI.pathJoin(folderPath, selectedRepo);
-        setRepoPathMap(prev => ({ ...prev, [selectedRepo]: repoPath }));
+        const { owner, name, fullName } = parseRepoRef(selectedRepo, user?.name);
+        if (!name || !owner) {
+          throw new Error('Invalid repository selection');
+        }
+        const resolvedPath = await resolveLocalRepoPath(folderPath, name);
+        const repoPath = resolvedPath || window.electronAPI.pathJoin(folderPath, name);
+        setRepoPathMap(prev => ({ ...prev, [name]: repoPath, [fullName]: repoPath }));
         setLocalRepoPath(repoPath);
       }
     } catch (error) {
@@ -311,9 +347,20 @@ function App() {
 
     setIsLoadingRepos(true);
     try {
-      const response = await fetchWithGitea(`${serverPath}/gitea/api/v1/user/repos`, { method: 'GET' });
-      const repos = await response.json();
-      setRepos(repos.map(r => r.name));
+      const [ownResponse, publicResponse] = await Promise.all([
+        fetchWithGitea(`${serverPath}/gitea/api/v1/user/repos`, { method: 'GET' }),
+        fetchWithGitea(`${serverPath}/gitea/api/v1/repos/search?limit=100&page=1`, { method: 'GET' })
+      ]);
+
+      const ownRepos = await ownResponse.json();
+      const publicPayload = await publicResponse.json();
+      const publicRepos = Array.isArray(publicPayload) ? publicPayload : (publicPayload.data || []);
+
+      const mergedRefs = [...ownRepos, ...publicRepos]
+        .map(r => r.full_name || `${r.owner?.login || user.name}/${r.name}`)
+        .filter(Boolean);
+
+      setRepos([...new Set(mergedRefs)]);
     } catch (error) {
       console.error('Refresh repo error:', error);
       alert(error.message);
@@ -446,7 +493,8 @@ ${formatCommitMessage(commit.message)}`
       if (!localPath) return;
 
       setIsLoadingRepos(true);
-      setRepoPathMap(prev => ({ ...prev, [selectedRepo]: localPath }));
+      const { owner, name, fullName } = parseRepoRef(selectedRepo, user?.name);
+      setRepoPathMap(prev => ({ ...prev, [name || selectedRepo]: localPath, [fullName || selectedRepo]: localPath }));
       setLocalRepoPath(localPath);
       alert(`Repository cloned to: ${localPath}`);
       const localCommits = await GitService.getLocalHistory(localPath);
@@ -713,7 +761,8 @@ ${formatCommitMessage(commit.message)}`
                       onClick={() => {
                         setSelectedRepo(repo);
                         handleShowRepo(repo);
-                        setLocalRepoPath(repoPathMap[repo] || null);
+                        const { name, fullName } = parseRepoRef(repo, user?.name);
+                        setLocalRepoPath(repoPathMap[fullName] || repoPathMap[name] || null);
                       }}
                     >
                       {repo}
