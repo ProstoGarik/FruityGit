@@ -36,6 +36,8 @@ function App() {
   const [isGitChecking, setIsGitChecking] = useState(false);
   const [gitError, setGitError] = useState(null);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
+  const [allowUserEmail, setAllowUserEmail] = useState('');
+  const [isAllowingUser, setIsAllowingUser] = useState(false);
 
   const normalizeCloneUrl = (cloneUrl) => {
     if (!cloneUrl) return cloneUrl;
@@ -442,6 +444,60 @@ function App() {
     alert(`Diagnostics report:\n\n${lines.join('\n')}`);
   };
 
+  const handleAllowUser = async () => {
+    if (!user) {
+      alert('Please login first');
+      return;
+    }
+
+    if (!selectedRepo) {
+      alert('Please select a repository first');
+      return;
+    }
+
+    const email = allowUserEmail.trim();
+    if (!email) {
+      alert('Please enter an email');
+      return;
+    }
+
+    const { owner, name } = parseRepoRef(selectedRepo, user.name);
+    if (!owner || !name) {
+      alert('Invalid repository selection');
+      return;
+    }
+
+    if (owner.toLowerCase() !== (user.name || '').toLowerCase()) {
+      alert('Only repository owner can allow contributors.');
+      return;
+    }
+
+    try {
+      setIsAllowingUser(true);
+      const response = await fetch(`${serverPath}/api/git/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/allow-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken()}`
+        },
+        body: JSON.stringify({ email })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || payload?.Message || 'Failed to allow user');
+      }
+
+      setAllowUserEmail('');
+      alert(payload?.message || payload?.Message || 'User now has push access');
+    } catch (error) {
+      console.error('Allow user error:', error);
+      alert(`Failed to allow user: ${error.message}`);
+    } finally {
+      setIsAllowingUser(false);
+    }
+  };
+
   const handleCommitSelect = (commit) => {
     if (!commit) return;
 
@@ -552,6 +608,17 @@ ${formatCommitMessage(commit.message)}`
     }
     try {
       setIsLoadingRepos(true);
+      if (selectedRepo && user) {
+        const { owner, name } = parseRepoRef(selectedRepo, user.name);
+        if (owner && name) {
+          const repoInfo = await getRepoInfo(owner, name);
+          const canPush = repoInfo?.permissions?.push === true;
+          if (!canPush) {
+            throw new Error(`No write permission for ${owner}/${name}. Current user can read but cannot push.`);
+          }
+        }
+      }
+
       await GitService.pushToServer(localRepoPath, 'main');
       alert('Changes pushed to server successfully!');
       await handleRefreshRepo();
@@ -560,7 +627,11 @@ ${formatCommitMessage(commit.message)}`
       }
     } catch (error) {
       console.error('Push error:', error);
-      alert(`Push failed: ${error.message}`);
+      if (error?.message?.includes('User permission denied for writing')) {
+        alert('Push failed: current account has read-only access to this repository. Ask repo owner to grant Write permission or use a token from a user with push access.');
+      } else {
+        alert(`Push failed: ${error.message}`);
+      }
     } finally {
       setIsLoadingRepos(false);
     }
@@ -793,6 +864,30 @@ ${formatCommitMessage(commit.message)}`
               >
                 Скачать с сервера
               </button>
+              {selectedRepo && user && (() => {
+                const { owner } = parseRepoRef(selectedRepo, user?.name);
+                return owner && owner.toLowerCase() === (user?.name || '').toLowerCase();
+              })() && (
+                <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="email"
+                    className="repo-input"
+                    placeholder="Contributor email"
+                    value={allowUserEmail}
+                    onChange={(e) => setAllowUserEmail(e.target.value)}
+                    disabled={isAllowingUser}
+                    style={{ maxWidth: '260px' }}
+                  />
+                  <button
+                    className="repo-action-button"
+                    onClick={handleAllowUser}
+                    disabled={isAllowingUser || !allowUserEmail.trim()}
+                    title="Grant push permission to this user"
+                  >
+                    {isAllowingUser ? 'Allowing...' : 'Allow User'}
+                  </button>
+                </div>
+              )}
               <div className="local-repo-selector">
                 <span className="local-repo-label">
                   Local repo: {localRepoPath || "not chosen"}

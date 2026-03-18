@@ -144,6 +144,52 @@ public class GiteaService
         }
     }
 
+    public async Task<bool> AddRepositoryCollaboratorAsync(string owner, string repositoryName, string collaboratorUsername, string permission = "write")
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(owner) ||
+                string.IsNullOrWhiteSpace(repositoryName) ||
+                string.IsNullOrWhiteSpace(collaboratorUsername))
+            {
+                _logger.LogWarning("Invalid collaborator request payload: owner/repo/username is empty");
+                return false;
+            }
+
+            var requestPayload = new
+            {
+                permission = string.IsNullOrWhiteSpace(permission) ? "write" : permission
+            };
+
+            var request = new HttpRequestMessage(
+                HttpMethod.Put,
+                $"{_giteaBaseUrl}/api/v1/repos/{Uri.EscapeDataString(owner)}/{Uri.EscapeDataString(repositoryName)}/collaborators/{Uri.EscapeDataString(collaboratorUsername)}")
+            {
+                Content = new StringContent(JsonSerializer.Serialize(requestPayload), Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("token", _adminToken);
+
+            var response = await _httpClient.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Granted {Permission} to {CollaboratorUsername} for {Owner}/{RepositoryName}",
+                    requestPayload.permission, collaboratorUsername, owner, repositoryName);
+                return true;
+            }
+
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to add collaborator {CollaboratorUsername} to {Owner}/{RepositoryName}: {StatusCode} - {Error}",
+                collaboratorUsername, owner, repositoryName, response.StatusCode, error);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error adding collaborator {CollaboratorUsername} to {Owner}/{RepositoryName}",
+                collaboratorUsername, owner, repositoryName);
+            return false;
+        }
+    }
+
     private string GenerateRandomPassword()
     {
         using var rng = RandomNumberGenerator.Create();
