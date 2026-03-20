@@ -1,15 +1,12 @@
 // src/App.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import LoginWindow from './Login/Login';
 import { GitService } from './Git/GitService';
 import CreateRepo from './Repo/CreateRepo';
 import {
   getAccessToken,
-  getRefreshToken,
-  setTokens,
-  clearTokens,
   refreshAuthToken,
   fetchWithGitea,
   getGiteaToken
@@ -33,7 +30,6 @@ function App() {
   const [user, setUser] = useState(null);
   const [showCreateRepo, setShowCreateRepo] = useState(false);
   const [repoPathMap, setRepoPathMap] = useState({}); // NEW: stores { remoteRepoName: localPath }
-  const [isGitChecking, setIsGitChecking] = useState(false);
   const [gitError, setGitError] = useState(null);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
   const [allowUserEmail, setAllowUserEmail] = useState('');
@@ -141,30 +137,6 @@ function App() {
 
   const handleLogin = () => {
     setShowLogin(true);
-  };
-
-  const handleLogout = async () => {
-    try {
-      // Call logout API if needed
-      await fetch(`${serverPath}/api/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAccessToken()}`
-        },
-        body: JSON.stringify({
-          Email: user.email
-        }),
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // Clear all auth data
-      clearTokens();
-      localStorage.removeItem('user');
-      setUser(null);
-      clearAppState();
-    }
   };
 
   const handleCloseLogin = (userData) => {
@@ -344,7 +316,7 @@ function App() {
     }
   };
 
-  const handleRefreshRepo = async () => {
+  const handleRefreshRepo = useCallback(async () => {
     if (!user) return;
 
     setIsLoadingRepos(true);
@@ -369,7 +341,7 @@ function App() {
     } finally {
       setIsLoadingRepos(false);
     }
-  };
+  }, [user]);
 
   const handleRunDiagnostics = async () => {
     if (isRunningDiagnostics) return;
@@ -549,7 +521,7 @@ ${formatCommitMessage(commit.message)}`
       if (!localPath) return;
 
       setIsLoadingRepos(true);
-      const { owner, name, fullName } = parseRepoRef(selectedRepo, user?.name);
+      const { name, fullName } = parseRepoRef(selectedRepo, user?.name);
       setRepoPathMap(prev => ({ ...prev, [name || selectedRepo]: localPath, [fullName || selectedRepo]: localPath }));
       setLocalRepoPath(localPath);
       alert(`Repository cloned to: ${localPath}`);
@@ -662,6 +634,8 @@ ${formatCommitMessage(commit.message)}`
   };
 
   useEffect(() => {
+    if (user) return;
+
     const verifyToken = async () => {
       const storedUser = localStorage.getItem('user');
       const accessToken = getAccessToken();
@@ -694,18 +668,15 @@ ${formatCommitMessage(commit.message)}`
     };
 
     verifyToken();
-  }, []);
+  }, [user, handleRefreshRepo]);
   useEffect(() => {
     const checkGit = async () => {
-      setIsGitChecking(true);
       try {
         await GitService.checkGitInstalled();
         setGitError(null);
       } catch (err) {
         setGitError(err.message);
         // Optionally show a helpful UI message
-      } finally {
-        setIsGitChecking(false);
       }
     };
     checkGit();

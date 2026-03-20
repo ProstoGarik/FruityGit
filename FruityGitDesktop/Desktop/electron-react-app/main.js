@@ -67,19 +67,9 @@ ipcMain.handle('extract-zip', async (event, zipPath, extractPath) => {
   }
 });
 
-ipcMain.handle('open-save-dialog', async (event, options) => {
-  const { filePath } = await dialog.showSaveDialog(options);
-  return filePath;
-});
-
 ipcMain.handle('open-folder-dialog', async () => {
   const { filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] });
   return filePaths[0];
-});
-
-ipcMain.handle('show-message-box', async (event, options) => {
-  const result = await dialog.showMessageBox(options);
-  return result;
 });
 
 ipcMain.handle('open-flp-dialog', async () => {
@@ -414,4 +404,3 @@ ipcMain.handle('write-file', (event, filePath, data) => {
   const buffer = Buffer.from(data);
   fs.writeFileSync(filePath, buffer);
 });
-ipcMain.handle('unlink', (event, filePath) => fs.unlinkSync(filePath));

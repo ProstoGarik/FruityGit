@@ -6,8 +6,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // File dialogs
   openFlpDialog: () => ipcRenderer.invoke('open-flp-dialog'),
   openFolderDialog: () => ipcRenderer.invoke('open-folder-dialog'),
-  openSaveDialog: (options) => ipcRenderer.invoke('open-save-dialog', options),
-  showMessageBox: (options) => ipcRenderer.invoke('show-message-box', options),
 
   // File system (only safe operations)
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
@@ -27,7 +25,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
   mkdir: (dirPath, options) => ipcRenderer.invoke('mkdir', dirPath, options),
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
-  unlink: (filePath) => ipcRenderer.invoke('unlink', filePath),
 
 
   pathDirname: (p) => path.dirname(p),
