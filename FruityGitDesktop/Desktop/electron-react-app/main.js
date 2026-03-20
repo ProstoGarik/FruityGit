@@ -404,3 +404,32 @@ ipcMain.handle('write-file', (event, filePath, data) => {
   const buffer = Buffer.from(data);
   fs.writeFileSync(filePath, buffer);
 });
+
+// Check if a directory exists and is empty.
+// - If dir doesn't exist, treat it as empty (so caller can clone into it).
+ipcMain.handle('dir-is-empty', (event, dirPath) => {
+  try {
+    if (!fs.existsSync(dirPath)) return true;
+    const entries = fs.readdirSync(dirPath);
+    return entries.length === 0;
+  } catch (error) {
+    return false;
+  }
+});
+
+// Read local git config and return origin URL (if present).
+ipcMain.handle('git:origin-url', (event, { repoPath }) => {
+  try {
+    const configPath = path.join(repoPath, '.git', 'config');
+    if (!fs.existsSync(configPath)) return null;
+
+    const configText = fs.readFileSync(configPath, 'utf8');
+    // Extract [remote "origin"] section and then its url = ...
+    const originSection = configText.match(/\[remote "origin"\][\s\S]*?(?=\n\[|$)/m)?.[0];
+    if (!originSection) return null;
+    const urlMatch = originSection.match(/^\s*url\s*=\s*(.+)\s*$/m);
+    return urlMatch?.[1]?.trim() ?? null;
+  } catch (error) {
+    return null;
+  }
+});

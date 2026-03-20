@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
   mkdir: (dirPath, options) => ipcRenderer.invoke('mkdir', dirPath, options),
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
+  dirIsEmpty: (dirPath) => ipcRenderer.invoke('dir-is-empty', dirPath),
 
 
   pathDirname: (p) => path.dirname(p),
@@ -63,6 +64,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     getRemotes: (repoPath) =>
       ipcRenderer.invoke('git:get-remotes', { repoPath }),
+
+    getOriginUrl: (repoPath) =>
+      ipcRenderer.invoke('git:origin-url', { repoPath }),
   },
 
 });

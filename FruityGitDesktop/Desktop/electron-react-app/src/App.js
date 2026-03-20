@@ -70,19 +70,40 @@ function App() {
     return await window.electronAPI.fileExists(dotGitPath);
   };
 
-  const resolveLocalRepoPath = async (selectedFolder, repo) => {
-    if (!selectedFolder || !repo) return null;
+  const extractOwnerRepoFromRemoteUrl = (remoteUrl) => {
+    if (!remoteUrl || typeof remoteUrl !== 'string') return null;
 
-    if (await isGitRepositoryPath(selectedFolder)) {
-      return selectedFolder;
+    // Remove query/hash and credentials/userinfo.
+    const cleaned = remoteUrl.split('?')[0].split('#')[0];
+    const withoutAuth = cleaned.includes('@') ? cleaned.split('@').pop() : cleaned;
+
+    // Prefer matching last two path segments (owner/repo(.git)).
+    const lastTwoMatch = withoutAuth.match(/\/([^/]+)\/([^/]+?)(?:\.git)?$/i);
+    if (lastTwoMatch) {
+      return { owner: lastTwoMatch[1], repo: lastTwoMatch[2] };
     }
 
-    const repoSubfolder = window.electronAPI.pathJoin(selectedFolder, repo);
-    if (await isGitRepositoryPath(repoSubfolder)) {
-      return repoSubfolder;
+    // Fallback for ssh-like: git@host:owner/repo.git
+    const sshMatch = withoutAuth.match(/[:/]([^:/\s]+)\/([^/\s]+?)(?:\.git)?$/i);
+    if (sshMatch) {
+      return { owner: sshMatch[1], repo: sshMatch[2] };
     }
 
     return null;
+  };
+
+  const ensureLocalRepoMatchesSelected = async (localRepoPath, expectedOwner, expectedRepo) => {
+    const originUrl = await window.electronAPI.git.getOriginUrl(localRepoPath);
+    const parsed = extractOwnerRepoFromRemoteUrl(originUrl);
+    if (!parsed) {
+      throw new Error('Unable to determine local repository remote. Please select the correct folder.');
+    }
+
+    const ownerOk = String(parsed.owner).toLowerCase() === String(expectedOwner).toLowerCase();
+    const repoOk = String(parsed.repo).toLowerCase() === String(expectedRepo).toLowerCase();
+    if (!ownerOk || !repoOk) {
+      throw new Error(`Selected folder is a git repository for ${parsed.owner}/${parsed.repo}, but you selected ${expectedOwner}/${expectedRepo}.`);
+    }
   };
 
   const ensureLocalRepoFor = async (repoRef, ownerName) => {
@@ -101,17 +122,37 @@ function App() {
       return null;
     }
 
-    const existingRepoPath = await resolveLocalRepoPath(selectedFolder, repo);
-    if (existingRepoPath) {
-      setRepoPathMap(prev => ({ ...prev, [repo]: existingRepoPath, [fullName]: existingRepoPath }));
-      setLocalRepoPath(existingRepoPath);
-      return existingRepoPath;
+    const candidateSelfRepoPath = selectedFolder;
+    const candidateSubRepoPath = window.electronAPI.pathJoin(selectedFolder, repo);
+
+    // Case 1/2: chosen folder already contains a git repo (self or selectedFolder/<repo>)
+    if (await isGitRepositoryPath(candidateSelfRepoPath)) {
+      await ensureLocalRepoMatchesSelected(candidateSelfRepoPath, owner, repo);
+      await GitService.pullFromServer(candidateSelfRepoPath, 'main');
+      setRepoPathMap(prev => ({ ...prev, [repo]: candidateSelfRepoPath, [fullName]: candidateSelfRepoPath }));
+      setLocalRepoPath(candidateSelfRepoPath);
+      return candidateSelfRepoPath;
+    }
+
+    if (await isGitRepositoryPath(candidateSubRepoPath)) {
+      await ensureLocalRepoMatchesSelected(candidateSubRepoPath, owner, repo);
+      await GitService.pullFromServer(candidateSubRepoPath, 'main');
+      setRepoPathMap(prev => ({ ...prev, [repo]: candidateSubRepoPath, [fullName]: candidateSubRepoPath }));
+      setLocalRepoPath(candidateSubRepoPath);
+      return candidateSubRepoPath;
+    }
+
+    // Case 3: target repo directory is empty -> clone
+    const cloneTargetPath = candidateSubRepoPath;
+    const isEmpty = await window.electronAPI.dirIsEmpty(cloneTargetPath);
+    if (!isEmpty) {
+      throw new Error('Selected folder is not empty and does not contain a git repository for this project.');
     }
 
     const repoInfo = await getRepoInfo(owner, repo);
     const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
-    const cloneTargetPath = window.electronAPI.pathJoin(selectedFolder, repo);
     await GitService.cloneRepo(giteaRepoUrl, cloneTargetPath, user);
+
     setRepoPathMap(prev => ({ ...prev, [repo]: cloneTargetPath, [fullName]: cloneTargetPath }));
     setLocalRepoPath(cloneTargetPath);
     return cloneTargetPath;
@@ -300,16 +341,47 @@ function App() {
 
     try {
       const folderPath = await window.electronAPI.openFolderDialog();
-      if (folderPath) {
-        const { owner, name, fullName } = parseRepoRef(selectedRepo, user?.name);
-        if (!name || !owner) {
-          throw new Error('Invalid repository selection');
-        }
-        const resolvedPath = await resolveLocalRepoPath(folderPath, name);
-        const repoPath = resolvedPath || window.electronAPI.pathJoin(folderPath, name);
-        setRepoPathMap(prev => ({ ...prev, [name]: repoPath, [fullName]: repoPath }));
-        setLocalRepoPath(repoPath);
+      if (!folderPath) return;
+      if (!user) {
+        throw new Error('Please login first');
       }
+
+      const { owner, name, fullName } = parseRepoRef(selectedRepo, user?.name);
+      if (!name || !owner) {
+        throw new Error('Invalid repository selection');
+      }
+
+      const candidateSelfRepoPath = folderPath;
+      const candidateSubRepoPath = window.electronAPI.pathJoin(folderPath, name);
+
+      if (await isGitRepositoryPath(candidateSelfRepoPath)) {
+        await ensureLocalRepoMatchesSelected(candidateSelfRepoPath, owner, name);
+        await GitService.pullFromServer(candidateSelfRepoPath, 'main');
+        setRepoPathMap(prev => ({ ...prev, [name]: candidateSelfRepoPath, [fullName]: candidateSelfRepoPath }));
+        setLocalRepoPath(candidateSelfRepoPath);
+        return;
+      }
+
+      if (await isGitRepositoryPath(candidateSubRepoPath)) {
+        await ensureLocalRepoMatchesSelected(candidateSubRepoPath, owner, name);
+        await GitService.pullFromServer(candidateSubRepoPath, 'main');
+        setRepoPathMap(prev => ({ ...prev, [name]: candidateSubRepoPath, [fullName]: candidateSubRepoPath }));
+        setLocalRepoPath(candidateSubRepoPath);
+        return;
+      }
+
+      // If folder is empty for <folder>/<repo>, clone; otherwise error
+      const isEmpty = await window.electronAPI.dirIsEmpty(candidateSubRepoPath);
+      if (!isEmpty) {
+        throw new Error('Selected folder is not empty and does not contain a git repository for this project.');
+      }
+
+      const repoInfo = await getRepoInfo(owner, name);
+      const giteaRepoUrl = normalizeCloneUrl(repoInfo.clone_url);
+      await GitService.cloneRepo(giteaRepoUrl, candidateSubRepoPath, user);
+
+      setRepoPathMap(prev => ({ ...prev, [name]: candidateSubRepoPath, [fullName]: candidateSubRepoPath }));
+      setLocalRepoPath(candidateSubRepoPath);
     } catch (error) {
       console.error('Error choosing folder:', error);
       alert(`Error: ${error.message}`);
