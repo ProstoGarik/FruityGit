@@ -48,6 +48,11 @@ export const GitService = {
   async cloneRepo(remoteUrl, localPath, user) {
     const gitAuth = this.getGitHttpAuth(user);
     const cloneUrl = GiteaService.buildAuthenticatedUrl(remoteUrl, gitAuth.username, gitAuth.password);
+    // Debug: print safe clone URL shape (no token/password)
+    const safeCloneUrl = cloneUrl
+      ? cloneUrl.replace(new RegExp(`${encodeURIComponent(gitAuth.password)}@`), '***@')
+      : null;
+    console.log('Cloning repo:', { remoteUrl, localPath, cloneUrl: safeCloneUrl });
     const result = await window.electronAPI.git.clone(cloneUrl, localPath, gitAuth);
     if (!result.success) throw new Error(result.error);
     return result;
