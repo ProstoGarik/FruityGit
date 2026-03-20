@@ -501,3 +501,14 @@ ipcMain.handle('git:origin-url', (event, { repoPath }) => {
     return null;
   }
 });
+
+// Recursively delete a folder (used to refresh extracted project tree).
+ipcMain.handle('rmrf', (event, targetPath) => {
+  try {
+    if (!targetPath) return { success: false, error: 'targetPath is required' };
+    fs.rmSync(targetPath, { recursive: true, force: true });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

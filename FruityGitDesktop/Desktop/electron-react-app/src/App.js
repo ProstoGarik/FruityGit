@@ -237,9 +237,12 @@ function App() {
 
         // Extract ZIP into the repo and stage extracted contents (not the ZIP file)
         const zipBaseName = window.electronAPI.pathBasename(zipPath).replace(/\.zip$/i, '');
-        const extractFolderName = `${zipBaseName}_${Date.now()}`;
-        const extractTo = window.electronAPI.pathJoin(localPath, 'uploads', extractFolderName);
+        // Use a stable folder per FLP to avoid re-adding the whole tree each upload.
+        // This allows git to show only real added/deleted/modified files.
+        const extractTo = window.electronAPI.pathJoin(localPath, 'uploads', zipBaseName);
 
+        // Replace existing extracted project contents (if any).
+        await window.electronAPI.rmrf(extractTo);
         await window.electronAPI.mkdir(extractTo, { recursive: true });
         await window.electronAPI.extractZip(zipPath, extractTo);
 
