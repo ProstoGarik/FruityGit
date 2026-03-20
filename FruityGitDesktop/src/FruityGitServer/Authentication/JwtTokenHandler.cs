@@ -48,8 +48,8 @@ public class JwtTokenHandler
         new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
         new(ClaimTypes.NameIdentifier, user.Id),
         new(ClaimTypes.Role, role),
-        new("name", user.UserName),
-        new("email", user.Email)
+        new("name", user.UserName ?? string.Empty),
+        new("email", user.Email ?? string.Empty)
     };
 
         var signingCredentials = new SigningCredentials(

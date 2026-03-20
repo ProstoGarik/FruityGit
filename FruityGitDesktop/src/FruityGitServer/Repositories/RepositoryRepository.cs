@@ -7,12 +7,10 @@ namespace FruityGitServer.Repositories;
 public class RepositoryRepository : IRepositoryRepository
 {
     private readonly DataContext _context;
-    private readonly ILogger<RepositoryRepository> _logger;
 
-    public RepositoryRepository(DataContext context, ILogger<RepositoryRepository> logger)
+    public RepositoryRepository(DataContext context)
     {
         _context = context;
-        _logger = logger;
     }
 
     public async Task<Repository?> GetByNameAsync(string name, string? userId = null)
@@ -25,11 +23,6 @@ public class RepositoryRepository : IRepositoryRepository
         }
 
         return await query.FirstOrDefaultAsync();
-    }
-
-    public async Task<Repository?> GetByIdAsync(int id)
-    {
-        return await _context.Repositories.FindAsync(id);
     }
 
     public async Task<IEnumerable<Repository>> GetUserRepositoriesAsync(string userId)
@@ -67,12 +60,6 @@ public class RepositoryRepository : IRepositoryRepository
     {
         return await _context.Repositories
             .AnyAsync(r => r.Name == name && r.AuthorId == userId);
-    }
-
-    public async Task<bool> ExistsGloballyAsync(string name)
-    {
-        return await _context.Repositories
-            .AnyAsync(r => r.Name == name);
     }
 
     public async Task<IEnumerable<Repository>> GetAllPublicRepositoriesAsync()
