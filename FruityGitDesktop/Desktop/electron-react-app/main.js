@@ -244,12 +244,21 @@ ipcMain.handle('git:clone', async (event, { remoteUrl, localPath, auth }) => {
 
     // Build clone options with auth if provided
     if (auth?.username && auth?.password) {
-      // For HTTPS auth, embed credentials in URL (simple-git handles this)
-      // Handle both http:// and https://
-      const protocol = remoteUrl.startsWith('https://') ? 'https://' : 'http://';
+      // If remoteUrl already contains credentials (userinfo@host), don't embed again.
+      // This avoids malformed URLs when the caller already built username:token@... URL.
       const urlWithoutProtocol = remoteUrl.replace(/^https?:\/\//, '');
-      const urlWithAuth = `${protocol}${encodeURIComponent(auth.username)}:${encodeURIComponent(auth.password)}@${urlWithoutProtocol}`;
-      await git.clone(urlWithAuth, validatedPath);
+      const authority = urlWithoutProtocol.split('/')[0] || '';
+      const alreadyHasUserInfo = authority.includes('@');
+
+      if (alreadyHasUserInfo) {
+        await git.clone(remoteUrl, validatedPath);
+      } else {
+        // For HTTPS auth, embed credentials in URL (simple-git handles this)
+        // Handle both http:// and https://
+        const protocol = remoteUrl.startsWith('https://') ? 'https://' : 'http://';
+        const urlWithAuth = `${protocol}${encodeURIComponent(auth.username)}:${encodeURIComponent(auth.password)}@${urlWithoutProtocol}`;
+        await git.clone(urlWithAuth, validatedPath);
+      }
     } else {
       await git.clone(remoteUrl, validatedPath);
     }
