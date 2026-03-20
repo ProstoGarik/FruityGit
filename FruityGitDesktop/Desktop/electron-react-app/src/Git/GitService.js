@@ -103,7 +103,7 @@ export const GitService = {
     if (!result.success) throw new Error(result.error);
 
     // Transform to match your app's commit format
-    return result.commits.map(commit => ({
+    const baseCommits = result.commits.map(commit => ({
       id: commit.hash,
       author: commit.author_name,
       email: commit.author_email,
@@ -113,6 +113,39 @@ export const GitService = {
         ? commit.message.split('_summEnd_')[0].trim()
         : commit.message.trim()
     }));
+
+    // Attach file change info for each commit:
+    // addedFiles/deletedFiles/modifiedFiles from `git show --name-status`.
+    const commitsWithChanges = [];
+    for (const commit of baseCommits) {
+      try {
+        const changesResult = await window.electronAPI.git.showNameStatus(repoPath, commit.id);
+        if (changesResult?.success) {
+          commitsWithChanges.push({
+            ...commit,
+            addedFiles: changesResult.addedFiles || [],
+            deletedFiles: changesResult.deletedFiles || [],
+            modifiedFiles: changesResult.modifiedFiles || []
+          });
+        } else {
+          commitsWithChanges.push({
+            ...commit,
+            addedFiles: [],
+            deletedFiles: [],
+            modifiedFiles: []
+          });
+        }
+      } catch (e) {
+        commitsWithChanges.push({
+          ...commit,
+          addedFiles: [],
+          deletedFiles: [],
+          modifiedFiles: []
+        });
+      }
+    }
+
+    return commitsWithChanges;
   },
 
   // Sync: pull then push (with error handling)

@@ -361,6 +361,65 @@ ipcMain.handle('git:log', async (event, { repoPath, maxCount = 20 }) => {
   }
 });
 
+// Get added/deleted/modified file lists for a commit.
+// Uses: git show --name-status --no-renames <hash>
+ipcMain.handle('git:show-name-status', async (event, { repoPath, commitHash }) => {
+  try {
+    if (!commitHash) throw new Error('commitHash is required');
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+
+    // We want a stable parse: one line per file change.
+    // Example lines:
+    // A\tpath/file.txt
+    // D\tpath/file.txt
+    // M\tpath/file.txt
+    // R100\told/path\tnew/path (rename)
+    const raw = await git.raw([
+      'show',
+      '--name-status',
+      '--no-color',
+      '--pretty=format:',
+      commitHash
+    ]);
+
+    const addedFiles = [];
+    const deletedFiles = [];
+    const modifiedFiles = [];
+
+    const lines = String(raw || '')
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      const parts = line.split('\t');
+      const status = parts[0] || '';
+
+      if (status === 'A') {
+        const file = parts[1];
+        if (file) addedFiles.push(file);
+      } else if (status === 'D') {
+        const file = parts[1];
+        if (file) deletedFiles.push(file);
+      } else if (status === 'M') {
+        const file = parts[1];
+        if (file) modifiedFiles.push(file);
+      } else if (status.startsWith('R')) {
+        // Rename: treat as delete + add for "added/deleted" info
+        const oldFile = parts[1];
+        const newFile = parts[2];
+        if (oldFile) deletedFiles.push(oldFile);
+        if (newFile) addedFiles.push(newFile);
+      }
+    }
+
+    return { success: true, addedFiles, deletedFiles, modifiedFiles };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Get current branch
 ipcMain.handle('git:current-branch', async (event, { repoPath }) => {
   try {

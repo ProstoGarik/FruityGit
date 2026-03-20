@@ -553,13 +553,23 @@ function App() {
       return `Summary: ${message.trim()}`;
     };
 
+    const formatFileList = (label, files) => {
+      const list = (files || []).filter(Boolean);
+      if (list.length === 0) return `${label}: (none)`;
+      return `${label}:\n${list.map(f => `- ${f}`).join('\n')}`;
+    };
+
     setSelectedCommit({
       ...commit,
       formattedDetails: `Commit: ${commit.id}
 Author: ${commit.author} <${commit.email}>
 Date: ${new Date(commit.date).toLocaleString()}
 
-${formatCommitMessage(commit.message)}`
+${formatCommitMessage(commit.message)}
+
+${formatFileList('Added', commit.addedFiles)}
+${formatFileList('Deleted', commit.deletedFiles)}
+${formatFileList('Modified', commit.modifiedFiles)}`
     });
   };
 

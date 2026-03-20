@@ -67,6 +67,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     getOriginUrl: (repoPath) =>
       ipcRenderer.invoke('git:origin-url', { repoPath }),
+
+    showNameStatus: (repoPath, commitHash) =>
+      ipcRenderer.invoke('git:show-name-status', { repoPath, commitHash }),
   },
 
 });
