@@ -6,6 +6,56 @@ from pathlib import Path
 import pyflp
 
 
+def _clean_name(*values):
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
+
+
+def _extract_generators(project):
+    generators = []
+    for channel in project.channels:
+        try:
+            plugin_obj = getattr(channel, "plugin", None)
+            plugin_name = _clean_name(
+                getattr(plugin_obj, "name", None),
+                getattr(channel, "display_name", None),
+                getattr(channel, "name", None),
+                getattr(channel, "internal_name", None),
+            )
+            if not plugin_name:
+                continue
+            generators.append(plugin_name)
+        except Exception:
+            # Best-effort extraction; skip malformed channels.
+            continue
+    return sorted(set(generators), key=str.lower)
+
+
+def _extract_effects(project):
+    effects = []
+    for insert in project.mixer:
+        for slot in insert:
+            try:
+                plugin_obj = getattr(slot, "plugin", None)
+                plugin_name = _clean_name(
+                    getattr(plugin_obj, "name", None),
+                    getattr(slot, "name", None),
+                    getattr(slot, "internal_name", None),
+                )
+                if not plugin_name:
+                    continue
+                effects.append(plugin_name)
+            except Exception:
+                # Best-effort extraction; skip malformed slots.
+                continue
+    return sorted(set(effects), key=str.lower)
+
+
 def process_flp(flp_path_str: str) -> Path:
     flp_path = Path(flp_path_str).expanduser().resolve()
     if not flp_path.exists():
@@ -23,6 +73,10 @@ def process_flp(flp_path_str: str) -> Path:
             "schemaVersion": 1,
             "flpFile": flp_path.name,
             "baseBpm": project.tempo,
+            "plugins": {
+                "generators": _extract_generators(project),
+                "effects": _extract_effects(project),
+            },
         }
         archive.writestr(".fruitygit-flp-meta.json", json.dumps(metadata, ensure_ascii=True, indent=2))
 

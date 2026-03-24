@@ -20,6 +20,19 @@ export const GitService = {
     }
   },
 
+  parsePluginsFromMetadata(rawContent) {
+    try {
+      if (!rawContent) return { generators: [], effects: [] };
+      const parsed = JSON.parse(rawContent);
+      const plugins = parsed?.plugins || {};
+      const generators = Array.isArray(plugins.generators) ? plugins.generators.filter(Boolean).map(String) : [];
+      const effects = Array.isArray(plugins.effects) ? plugins.effects.filter(Boolean).map(String) : [];
+      return { generators, effects };
+    } catch {
+      return { generators: [], effects: [] };
+    }
+  },
+
   async buildBaseBpmChanges(repoPath, commitHash, changedFiles) {
     const metaFiles = (changedFiles || []).filter(file =>
       String(file || '').toLowerCase().endsWith(this.FLP_METADATA_FILE_NAME.toLowerCase())
@@ -52,6 +65,32 @@ export const GitService = {
     }
 
     return changes;
+  },
+
+  async buildPluginSnapshot(repoPath, commitHash, changedFiles) {
+    const metaFiles = (changedFiles || []).filter(file =>
+      String(file || '').toLowerCase().endsWith(this.FLP_METADATA_FILE_NAME.toLowerCase())
+    );
+    if (metaFiles.length === 0) {
+      return { generators: [], effects: [] };
+    }
+
+    const generators = new Set();
+    const effects = new Set();
+
+    for (const metaFile of metaFiles) {
+      const result = await window.electronAPI.git.showFileAtRevision(repoPath, commitHash, metaFile);
+      if (!result?.success) continue;
+
+      const parsed = this.parsePluginsFromMetadata(result.content);
+      for (const name of parsed.generators) generators.add(name);
+      for (const name of parsed.effects) effects.add(name);
+    }
+
+    return {
+      generators: Array.from(generators).sort((a, b) => a.localeCompare(b)),
+      effects: Array.from(effects).sort((a, b) => a.localeCompare(b))
+    };
   },
 
   getGitHttpAuth(user = null) {
@@ -177,13 +216,15 @@ export const GitService = {
             ...(changesResult.modifiedFiles || [])
           ];
           const baseBpmChanges = await this.buildBaseBpmChanges(repoPath, commit.id, allChangedFiles);
+          const pluginSnapshot = await this.buildPluginSnapshot(repoPath, commit.id, allChangedFiles);
 
           commitsWithChanges.push({
             ...commit,
             addedFiles: changesResult.addedFiles || [],
             deletedFiles: changesResult.deletedFiles || [],
             modifiedFiles: changesResult.modifiedFiles || [],
-            baseBpmChanges
+            baseBpmChanges,
+            pluginSnapshot
           });
         } else {
           commitsWithChanges.push({
@@ -191,7 +232,8 @@ export const GitService = {
             addedFiles: [],
             deletedFiles: [],
             modifiedFiles: [],
-            baseBpmChanges: []
+            baseBpmChanges: [],
+            pluginSnapshot: { generators: [], effects: [] }
           });
         }
       } catch (e) {
@@ -200,7 +242,8 @@ export const GitService = {
           addedFiles: [],
           deletedFiles: [],
           modifiedFiles: [],
-          baseBpmChanges: []
+          baseBpmChanges: [],
+          pluginSnapshot: { generators: [], effects: [] }
         });
       }
     }

@@ -36,6 +36,7 @@ function App() {
   const [allowUserEmail, setAllowUserEmail] = useState('');
   const [isAllowingUser, setIsAllowingUser] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPluginsInDetails, setShowPluginsInDetails] = useState(false);
 
   const normalizeCloneUrl = (cloneUrl) => {
     if (!cloneUrl) return cloneUrl;
@@ -804,6 +805,7 @@ function App() {
 
   const handleCommitSelect = (commit) => {
     if (!commit) return;
+    setShowPluginsInDetails(false);
 
     const formatCommitMessage = (message) => {
       if (message.includes('_summEnd_')) {
@@ -838,6 +840,27 @@ ${formatFileList('Deleted', commit.deletedFiles)}
 ${formatFileList('Modified', commit.modifiedFiles)}
 ${formatBpmChanges(commit.baseBpmChanges)}`
     });
+  };
+
+  const formatPluginList = (title, list) => {
+    const safeList = (list || []).filter(Boolean);
+    if (safeList.length === 0) return `${title}: (none)`;
+    return `${title}:\n${safeList.map(item => `- ${item}`).join('\n')}`;
+  };
+
+  const getSelectedCommitPluginsText = () => {
+    if (!selectedCommit?.pluginSnapshot) {
+      return 'No plugin data found for this commit.';
+    }
+
+    const generators = selectedCommit.pluginSnapshot.generators || [];
+    const effects = selectedCommit.pluginSnapshot.effects || [];
+
+    return [
+      formatPluginList('Generators', generators),
+      '',
+      formatPluginList('Effects', effects)
+    ].join('\n');
   };
 
 
@@ -1331,8 +1354,21 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
           <div className="section details-section">
             <h2 className="section-title">Детали</h2>
             <div className="commit-details">
+              {selectedCommit && (
+                <button
+                  className="repo-action-button small"
+                  type="button"
+                  onClick={() => setShowPluginsInDetails(prev => !prev)}
+                  style={{ marginBottom: '10px' }}
+                >
+                  {showPluginsInDetails ? 'Hide plugins' : 'View plugins'}
+                </button>
+              )}
               {selectedCommit?.formattedDetails ? (
-                <pre>{selectedCommit.formattedDetails}</pre>
+                <>
+                  <pre>{selectedCommit.formattedDetails}</pre>
+                  {showPluginsInDetails && <pre>{getSelectedCommitPluginsText()}</pre>}
+                </>
               ) : selectedCommit ? (
                 <>
                   <div className="commit-header">
@@ -1356,6 +1392,7 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                   )}
 
                   {selectedCommit.details && <pre>{selectedCommit.details}</pre>}
+                  {showPluginsInDetails && <pre>{getSelectedCommitPluginsText()}</pre>}
                 </>
               ) : (
                 <p>Выберите коммит для просмотра деталей</p>
