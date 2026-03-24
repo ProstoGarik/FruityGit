@@ -88,14 +88,38 @@ ipcMain.handle('read-file', (event, filePath) => fs.readFileSync(filePath));
 ipcMain.handle('run-python-processor', async (event, filePath) => {
   return new Promise((resolve, reject) => {
     const appPath = app.getAppPath();
-    const pythonScriptPath = path.join(appPath, 'resources', 'python-app', 'dist', 'flp_processor.exe');
+    const pythonScriptPath = path.join(appPath, 'resources', 'python-app', 'dist', 'flp_processor.py');
 
     if (!fs.existsSync(pythonScriptPath)) {
       return reject(new Error(`FLP processor not found at: ${pythonScriptPath}`));
     }
 
     const { spawn } = require('child_process');
-    const pythonProcess = spawn(pythonScriptPath, [filePath]);
+    const interpreterCandidates = [
+      { cmd: 'py', args: ['-3'] },
+      { cmd: 'python', args: [] },
+      { cmd: 'python3', args: [] }
+    ];
+
+    const canRunInterpreter = (candidate) => {
+      try {
+        const proc = spawn(candidate.cmd, [...candidate.args, '--version']);
+        return proc && typeof proc.pid === 'number';
+      } catch (e) {
+        return false;
+      }
+    };
+
+    const selectedInterpreter = interpreterCandidates.find(canRunInterpreter);
+    if (!selectedInterpreter) {
+      return reject(new Error('Python interpreter was not found. Install Python 3 and make sure `py` or `python` is in PATH.'));
+    }
+
+    const pythonProcess = spawn(
+      selectedInterpreter.cmd,
+      [...selectedInterpreter.args, pythonScriptPath, filePath],
+      { cwd: path.dirname(pythonScriptPath) }
+    );
 
     let output = '';
     let errorOutput = '';
@@ -112,11 +136,15 @@ ipcMain.handle('run-python-processor', async (event, filePath) => {
 
     pythonProcess.on('close', (code) => {
       if (code === 0) {
-        const zipPath = output.trim().split('\n').pop();
+        const lines = output
+          .split(/\r?\n/)
+          .map(line => line.trim())
+          .filter(Boolean);
+        const zipPath = lines.find(line => line.toLowerCase().endsWith('.zip')) || lines[lines.length - 1];
         if (zipPath && fs.existsSync(zipPath)) {
           resolve(zipPath);
         } else {
-          reject(new Error('Failed to create ZIP file'));
+          reject(new Error(`Failed to create ZIP file. Output: ${output || '(empty)'}`));
         }
       } else {
         reject(new Error(`Python script failed: ${errorOutput}`));
@@ -424,6 +452,20 @@ ipcMain.handle('git:show-name-status', async (event, { repoPath, commitHash }) =
     }
 
     return { success: true, addedFiles, deletedFiles, modifiedFiles };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get file content at a specific revision (commit-ish:path)
+ipcMain.handle('git:show-file-at-revision', async (event, { repoPath, revision, filePath }) => {
+  try {
+    if (!revision) throw new Error('revision is required');
+    if (!filePath) throw new Error('filePath is required');
+    const validatedPath = validateRepoPath(repoPath);
+    const git = simpleGit(validatedPath);
+    const output = await git.raw(['show', `${revision}:${filePath}`]);
+    return { success: true, content: output };
   } catch (error) {
     return { success: false, error: error.message };
   }

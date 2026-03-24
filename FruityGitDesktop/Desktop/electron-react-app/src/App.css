@@ -29,6 +29,21 @@
   background-color: #3a76d8;
 }
 
+.settings-button {
+  margin-left: 10px;
+  padding: 5px 15px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.settings-button:hover {
+  background-color: #5a6268;
+}
+
 .main-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

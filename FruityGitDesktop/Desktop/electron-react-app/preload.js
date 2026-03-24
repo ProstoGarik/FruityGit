@@ -71,6 +71,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     showNameStatus: (repoPath, commitHash) =>
       ipcRenderer.invoke('git:show-name-status', { repoPath, commitHash }),
+
+    showFileAtRevision: (repoPath, revision, filePath) =>
+      ipcRenderer.invoke('git:show-file-at-revision', { repoPath, revision, filePath }),
   },
 
 });

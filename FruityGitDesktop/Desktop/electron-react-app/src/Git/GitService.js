@@ -4,6 +4,56 @@ import { getGiteaToken } from '../Login/AuthService';
 
 
 export const GitService = {
+  FLP_METADATA_FILE_NAME: '.fruitygit-flp-meta.json',
+
+  parseBaseBpmFromMetadata(rawContent) {
+    try {
+      if (!rawContent) return null;
+      const parsed = JSON.parse(rawContent);
+      const value = parsed?.baseBpm;
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  async buildBaseBpmChanges(repoPath, commitHash, changedFiles) {
+    const metaFiles = (changedFiles || []).filter(file =>
+      String(file || '').toLowerCase().endsWith(this.FLP_METADATA_FILE_NAME.toLowerCase())
+    );
+
+    if (metaFiles.length === 0) return [];
+
+    const changes = [];
+    for (const metaFile of metaFiles) {
+      let currentBpm = null;
+      let previousBpm = null;
+
+      const currentResult = await window.electronAPI.git.showFileAtRevision(repoPath, commitHash, metaFile);
+      if (currentResult?.success) {
+        currentBpm = this.parseBaseBpmFromMetadata(currentResult.content);
+      }
+
+      // Parent may not exist (root commit), so we allow failure.
+      const previousResult = await window.electronAPI.git.showFileAtRevision(repoPath, `${commitHash}^`, metaFile);
+      if (previousResult?.success) {
+        previousBpm = this.parseBaseBpmFromMetadata(previousResult.content);
+      }
+
+      if (currentBpm === null && previousBpm === null) continue;
+      if (currentBpm === previousBpm) continue;
+
+      const oldLabel = previousBpm === null ? '(none)' : String(previousBpm);
+      const newLabel = currentBpm === null ? '(none)' : String(currentBpm);
+      changes.push(`${metaFile}: ${oldLabel} -> ${newLabel}`);
+    }
+
+    return changes;
+  },
+
   getGitHttpAuth(user = null) {
     const giteaToken = getGiteaToken();
     if (!giteaToken) {
@@ -121,18 +171,27 @@ export const GitService = {
       try {
         const changesResult = await window.electronAPI.git.showNameStatus(repoPath, commit.id);
         if (changesResult?.success) {
+          const allChangedFiles = [
+            ...(changesResult.addedFiles || []),
+            ...(changesResult.deletedFiles || []),
+            ...(changesResult.modifiedFiles || [])
+          ];
+          const baseBpmChanges = await this.buildBaseBpmChanges(repoPath, commit.id, allChangedFiles);
+
           commitsWithChanges.push({
             ...commit,
             addedFiles: changesResult.addedFiles || [],
             deletedFiles: changesResult.deletedFiles || [],
-            modifiedFiles: changesResult.modifiedFiles || []
+            modifiedFiles: changesResult.modifiedFiles || [],
+            baseBpmChanges
           });
         } else {
           commitsWithChanges.push({
             ...commit,
             addedFiles: [],
             deletedFiles: [],
-            modifiedFiles: []
+            modifiedFiles: [],
+            baseBpmChanges: []
           });
         }
       } catch (e) {
@@ -140,7 +199,8 @@ export const GitService = {
           ...commit,
           addedFiles: [],
           deletedFiles: [],
-          modifiedFiles: []
+          modifiedFiles: [],
+          baseBpmChanges: []
         });
       }
     }

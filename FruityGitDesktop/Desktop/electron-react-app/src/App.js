@@ -5,6 +5,7 @@ import './App.css';
 import LoginWindow from './Login/Login';
 import { GitService } from './Git/GitService';
 import CreateRepo from './Repo/CreateRepo';
+import SettingsWindow from './Settings/Settings';
 import {
   getAccessToken,
   refreshAuthToken,
@@ -21,7 +22,7 @@ function App() {
   const [selectedCommit, setSelectedCommit] = useState(null);
   const [attachedFile, setAttachedFile] = useState(null);
   // Single backend (auth + metadata API) - ASP.NET server on port 3000 (also proxies Gitea)
-  const serverPath = 'http://localhost:3000';
+  const [serverPath, setServerPath] = useState(() => localStorage.getItem('serverPath') || 'http://localhost:3000');
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [localRepoPath, setLocalRepoPath] = useState(null);
   const [selectedRepo, setSelectedRepo] = useState(null);
@@ -34,6 +35,7 @@ function App() {
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
   const [allowUserEmail, setAllowUserEmail] = useState('');
   const [isAllowingUser, setIsAllowingUser] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const normalizeCloneUrl = (cloneUrl) => {
     if (!cloneUrl) return cloneUrl;
@@ -416,10 +418,13 @@ function App() {
     } finally {
       setIsLoadingRepos(false);
     }
-  }, [user]);
+  }, [user, serverPath]);
 
-  const handleRunDiagnostics = async () => {
-    if (isRunningDiagnostics) return;
+  const runFullDiagnostics = async () => {
+    if (isRunningDiagnostics) return 'Diagnostics already running.';
+    if (!user) throw new Error('Please login first.');
+    if (!window.electronAPI) throw new Error('Electron API is not available.');
+
     setIsRunningDiagnostics(true);
 
     const lines = [];
@@ -428,7 +433,36 @@ function App() {
       lines.push(`${status} | ${label}${details ? ` | ${details}` : ''}`);
     };
 
+    const ownerName = user?.name || '';
+    const accessToken = getAccessToken();
+    const currentGiteaToken = getGiteaToken();
+
+    const fetchWithToken = async (url, token, options = {}) => {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `token ${token}`,
+        'X-Gitea-Token': token,
+        ...(options.headers || {})
+      };
+      return fetch(url, { ...options, headers });
+    };
+
+    const cleanupTemp = async (diagRoot) => {
+      try {
+        if (diagRoot) {
+          await window.electronAPI.rmrf(diagRoot);
+        }
+      } catch (e) {
+        // ignore cleanup errors
+      }
+    };
+
+    let diagRoot = null;
+    let publicRepoName = null;
+    let privateRepoName = null;
+
     try {
+      addLine('Backend health endpoint', true);
       try {
         const response = await fetchWithTimeout(`${serverPath}/health`);
         addLine('Backend health endpoint', response.ok, `HTTP ${response.status}`);
@@ -443,22 +477,8 @@ function App() {
         addLine('Gitea proxy endpoint', false, error.message);
       }
 
-      const giteaToken = getGiteaToken();
-      addLine('Gitea token in localStorage', !!giteaToken, giteaToken ? 'present' : 'missing');
-
-      if (giteaToken) {
-        try {
-          const response = await fetchWithTimeout(`${serverPath}/gitea/api/v1/user`, {
-            headers: {
-              'Authorization': `token ${giteaToken}`,
-              'X-Gitea-Token': giteaToken
-            }
-          });
-          addLine('Gitea auth check (/api/v1/user)', response.ok, `HTTP ${response.status}`);
-        } catch (error) {
-          addLine('Gitea auth check (/api/v1/user)', false, error.message);
-        }
-      }
+      addLine('Gitea token in localStorage', !!currentGiteaToken, currentGiteaToken ? 'present' : 'missing');
+      if (!currentGiteaToken) throw new Error('Gitea token missing in localStorage (login required).');
 
       try {
         await GitService.checkGitInstalled();
@@ -467,28 +487,265 @@ function App() {
         addLine('Git installed', false, error.message);
       }
 
-      if (localRepoPath) {
-        addLine('Local repository selected', true, localRepoPath);
-        const remotesResult = await window.electronAPI.git.getRemotes(localRepoPath);
-        if (remotesResult.success) {
-          const origin = remotesResult.remotes?.find(r => r.name === 'origin');
-          if (origin) {
-            const pushUrl = origin.refs?.push || origin.refs?.fetch || 'unknown';
-            addLine('Origin remote', true, pushUrl);
-          } else {
-            addLine('Origin remote', false, 'origin not found');
-          }
-        } else {
-          addLine('Origin remote', false, remotesResult.error || 'failed to read remotes');
-        }
-      } else {
-        addLine('Local repository selected', false, 'not selected');
+      // Create local temp directory for git clones and test files.
+      const appPath = await window.electronAPI.getAppPath();
+      const runId = `diag-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const tempBase = window.electronAPI.pathJoin(appPath, 'temp', runId);
+      diagRoot = tempBase;
+      await window.electronAPI.mkdir(tempBase, { recursive: true });
+
+      // Generate unique repo names.
+      publicRepoName = `diag-public-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`.replace(/[^a-zA-Z0-9_-]/g, '');
+      privateRepoName = `diag-private-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`.replace(/[^a-zA-Z0-9_-]/g, '');
+
+      const createRepo = async (name, isPrivate) => {
+        const response = await fetchWithGitea(`${serverPath}/gitea/api/v1/user/repos`, {
+          method: 'POST',
+          body: JSON.stringify({
+            name,
+            private: isPrivate,
+            auto_init: true,
+            default_branch: 'main'
+          })
+        });
+        return response.json();
+      };
+
+      addLine('Creating public test repo', true);
+      const publicRepo = await createRepo(publicRepoName, false);
+      addLine('Creating public test repo', !!publicRepo?.name, publicRepo?.name || 'missing name');
+
+      addLine('Creating private test repo', true);
+      const privateRepo = await createRepo(privateRepoName, true);
+      addLine('Creating private test repo', !!privateRepo?.name, privateRepo?.name || 'missing name');
+
+      // OWNER: clone before push to test pull
+      const publicCloneBefore = window.electronAPI.pathJoin(tempBase, 'publicBefore');
+      const publicCloneAfter = window.electronAPI.pathJoin(tempBase, 'publicAfter');
+      const privateCloneOwner = window.electronAPI.pathJoin(tempBase, 'privateOwner');
+
+      const remotePublicUrl = `${serverPath}/gitea/${ownerName}/${publicRepoName}.git`;
+      const remotePrivateUrl = `${serverPath}/gitea/${ownerName}/${privateRepoName}.git`;
+
+      await GitService.cloneRepo(remotePublicUrl, publicCloneBefore, user);
+      addLine('Clone public repo (before push)', true, publicCloneBefore);
+
+      await GitService.cloneRepo(remotePublicUrl, publicCloneAfter, user);
+      addLine('Clone public repo (after push)', true, publicCloneAfter);
+
+      // Commit #1: add file
+      const uploadsDirA = window.electronAPI.pathJoin(publicCloneAfter, 'uploads');
+      const diagFile1 = window.electronAPI.pathJoin(uploadsDirA, 'diag1.txt');
+      await window.electronAPI.mkdir(uploadsDirA, { recursive: true });
+      await window.electronAPI.writeFile(diagFile1, 'v1');
+
+      await GitService.commitFile(publicCloneAfter, diagFile1, 'Diag v1', 'add', user);
+      await GitService.pushToServer(publicCloneAfter, 'main');
+      addLine('Commit v1 + push (public)', true);
+
+      // Pull into cloneBefore
+      await GitService.pullFromServer(publicCloneBefore, 'main');
+      const diagFile1InBefore = window.electronAPI.pathJoin(publicCloneBefore, 'uploads', 'diag1.txt');
+      const existsAfterV1 = await window.electronAPI.fileExists(diagFile1InBefore);
+      addLine('Pull public repo after push (file exists)', existsAfterV1, existsAfterV1 ? 'diag1.txt present' : 'diag1.txt missing');
+
+      // Commit #2: modify file
+      await window.electronAPI.writeFile(diagFile1, 'v2');
+      await GitService.commitFile(publicCloneAfter, diagFile1, 'Diag v2', 'modify', user);
+      await GitService.pushToServer(publicCloneAfter, 'main');
+      addLine('Commit v2 + push (public)', true);
+
+      await GitService.pullFromServer(publicCloneBefore, 'main');
+
+      const publicHistory = await GitService.getLocalHistory(publicCloneBefore, 10);
+      const commitV2 = publicHistory.find(c => c.summary === 'Diag v2');
+      const diagInHistoryV2Modified = (commitV2?.modifiedFiles || []).includes('uploads/diag1.txt');
+      addLine('Commit details: diag1 tracked as modified', diagInHistoryV2Modified, diagInHistoryV2Modified ? 'modifiedFiles contains uploads/diag1.txt' : 'modifiedFiles empty/missing');
+
+      // Commit #3: delete file
+      await window.electronAPI.rmrf(diagFile1);
+      await window.electronAPI.git.add(publicCloneAfter, '.');
+      await window.electronAPI.git.commit(publicCloneAfter, 'Diag delete_summEnd_delete', { name: user.name, email: user.email });
+      await GitService.pushToServer(publicCloneAfter, 'main');
+      addLine('Commit delete + push (public)', true);
+
+      await GitService.pullFromServer(publicCloneBefore, 'main');
+      const existsAfterDelete = await window.electronAPI.fileExists(diagFile1InBefore);
+      addLine('Pull public repo after delete (file absent)', !existsAfterDelete, existsAfterDelete ? 'diag1.txt still exists' : 'diag1.txt removed');
+
+      const publicHistory2 = await GitService.getLocalHistory(publicCloneBefore, 10);
+      const commitDelete = publicHistory2.find(c => c.summary === 'Diag delete');
+      const diagInHistoryDeleted = (commitDelete?.deletedFiles || []).includes('uploads/diag1.txt');
+      addLine('Commit details: diag1 tracked as deleted', diagInHistoryDeleted, diagInHistoryDeleted ? 'deletedFiles contains uploads/diag1.txt' : 'deletedFiles empty/missing');
+
+      // OWNER: private repo commit
+      await GitService.cloneRepo(remotePrivateUrl, privateCloneOwner, user);
+      addLine('Clone private repo (owner)', true, privateCloneOwner);
+
+      const privateUploadsDir = window.electronAPI.pathJoin(privateCloneOwner, 'uploads');
+      const privateFile = window.electronAPI.pathJoin(privateUploadsDir, 'secret.txt');
+      await window.electronAPI.mkdir(privateUploadsDir, { recursive: true });
+      await window.electronAPI.writeFile(privateFile, 'secret');
+      await GitService.commitFile(privateCloneOwner, privateFile, 'Private diag', 'add', user);
+      await GitService.pushToServer(privateCloneOwner, 'main');
+      addLine('Private commit + push (owner)', true);
+
+      // Contributor: register + login (get their gitea token)
+      const randomSuffix = Math.random().toString(36).slice(2, 8);
+      const contributorUserName = `diaguser_${randomSuffix}`;
+      const contributorEmail = `diaguser_${randomSuffix}@tmp.local`;
+      const contributorPassword = `P@${randomSuffix}!aA1`;
+
+      const registerRes = await fetch(`${serverPath}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          UserName: contributorUserName,
+          Email: contributorEmail,
+          Password: contributorPassword,
+          RoleName: 'User'
+        })
+      });
+
+      if (!registerRes.ok) {
+        throw new Error(`Failed to register contributor: ${await registerRes.text()}`);
       }
+
+      const loginRes = await fetch(`${serverPath}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Email: contributorEmail, Password: contributorPassword })
+      });
+
+      if (!loginRes.ok) {
+        throw new Error(`Failed to login contributor: ${await loginRes.text()}`);
+      }
+
+      const loginPayload = await loginRes.json();
+      const contributorGiteaToken = loginPayload?.giteaToken;
+      if (!contributorGiteaToken) {
+        throw new Error('Contributor gitea token missing from login response.');
+      }
+
+      // Contributor: view public repo should be allowed
+      const publicInfoRes = await fetchWithToken(
+        `${serverPath}/gitea/api/v1/repos/${ownerName}/${publicRepoName}`,
+        contributorGiteaToken
+      );
+      addLine('Contributor can view public repo', publicInfoRes.ok, `HTTP ${publicInfoRes.status}`);
+
+      // Contributor: view private repo should fail before allow-user
+      const privateInfoBefore = await fetchWithToken(
+        `${serverPath}/gitea/api/v1/repos/${ownerName}/${privateRepoName}`,
+        contributorGiteaToken
+      );
+      addLine('Contributor cannot view private repo (before allow)', !privateInfoBefore.ok, `HTTP ${privateInfoBefore.status}`);
+
+      // Contributor: clone private repo should fail before allow
+      const contributorCloneBefore = window.electronAPI.pathJoin(tempBase, 'contribPrivateBefore');
+      let contributorCloneBeforeOk = false;
+      let contributorCloneBeforeErr = '';
+      try {
+        const res = await window.electronAPI.git.clone(remotePrivateUrl, contributorCloneBefore, {
+          username: contributorUserName,
+          password: contributorGiteaToken,
+          token: contributorGiteaToken
+        });
+        contributorCloneBeforeOk = !!res?.success;
+        contributorCloneBeforeErr = res?.error || '';
+      } catch (e) {
+        contributorCloneBeforeOk = false;
+        contributorCloneBeforeErr = e?.message || String(e);
+      }
+      addLine(
+        'Contributor clone private fails (before allow)',
+        !contributorCloneBeforeOk,
+        contributorCloneBeforeOk ? `unexpected success${contributorCloneBeforeErr ? `: ${contributorCloneBeforeErr}` : ''}` : `clone rejected${contributorCloneBeforeErr ? `: ${contributorCloneBeforeErr}` : ''}`
+      );
+
+      // Allow contributor to private repo using backend endpoint
+      if (!accessToken) throw new Error('Owner access token missing.');
+      const allowRes = await fetch(`${serverPath}/api/git/${encodeURIComponent(ownerName)}/${encodeURIComponent(privateRepoName)}/allow-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ email: contributorEmail })
+      });
+
+      const allowPayload = await allowRes.json().catch(() => ({}));
+      addLine('Owner grants contributor write via allow-user', allowRes.ok, allowPayload?.message || `HTTP ${allowRes.status}`);
+
+      // Contributor: view private repo should work now
+      const privateInfoAfter = await fetchWithToken(
+        `${serverPath}/gitea/api/v1/repos/${ownerName}/${privateRepoName}`,
+        contributorGiteaToken
+      );
+      addLine('Contributor can view private repo (after allow)', privateInfoAfter.ok, `HTTP ${privateInfoAfter.status}`);
+
+      // Contributor: clone private repo and push a commit
+      const contributorCloneAfter = window.electronAPI.pathJoin(tempBase, 'contribPrivateAfter');
+      const contributorCloneAfterRes = await window.electronAPI.git.clone(remotePrivateUrl, contributorCloneAfter, {
+        username: contributorUserName,
+        password: contributorGiteaToken,
+        token: contributorGiteaToken
+      });
+      if (!contributorCloneAfterRes?.success) {
+        throw new Error(contributorCloneAfterRes?.error || 'Contributor clone after allow failed.');
+      }
+
+      const contributorUploadsDir = window.electronAPI.pathJoin(contributorCloneAfter, 'uploads');
+      const contributorFile = window.electronAPI.pathJoin(contributorUploadsDir, 'contrib.txt');
+      await window.electronAPI.mkdir(contributorUploadsDir, { recursive: true });
+      await window.electronAPI.writeFile(contributorFile, 'contrib');
+      await window.electronAPI.git.add(contributorCloneAfter, contributorFile);
+      await window.electronAPI.git.commit(contributorCloneAfter, 'Contrib push_summEnd_contrib', { name: contributorUserName, email: contributorEmail });
+      await window.electronAPI.git.push(contributorCloneAfter, 'origin', 'main', {
+        username: contributorUserName,
+        password: contributorGiteaToken,
+        token: contributorGiteaToken
+      });
+      addLine('Contributor commit + push to private repo', true);
+
+      // Verify owner clone can pull new file
+      await GitService.pullFromServer(privateCloneOwner, 'main');
+      const contributorFileInOwner = window.electronAPI.pathJoin(privateCloneOwner, 'uploads', 'contrib.txt');
+      const contributorFileExists = await window.electronAPI.fileExists(contributorFileInOwner);
+      addLine('Owner pulls contributor file', contributorFileExists, contributorFileExists ? 'contrib.txt present' : 'contrib.txt missing');
+
+      return lines.join('\n');
+    } catch (error) {
+      lines.push(`FAIL | Diagnostics error | ${error?.message || error}`);
+      return lines.join('\n');
     } finally {
       setIsRunningDiagnostics(false);
-    }
+      // Best-effort cleanup: local clones only; git repos/user cleanup is optional.
+      try {
+        if (diagRoot) {
+          await cleanupTemp(diagRoot);
+        }
+      } catch (e) {
+        // ignore
+      }
 
-    alert(`Diagnostics report:\n\n${lines.join('\n')}`);
+      // Best-effort cleanup: delete temp repos in Gitea.
+      try {
+        if (currentGiteaToken && ownerName && publicRepoName) {
+          await fetchWithGitea(`${serverPath}/gitea/api/v1/repos/${ownerName}/${publicRepoName}`, { method: 'DELETE' });
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      try {
+        if (currentGiteaToken && ownerName && privateRepoName) {
+          await fetchWithGitea(`${serverPath}/gitea/api/v1/repos/${ownerName}/${privateRepoName}`, { method: 'DELETE' });
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
   };
 
   const handleAllowUser = async () => {
@@ -562,6 +819,12 @@ function App() {
       return `${label}:\n${list.map(f => `- ${f}`).join('\n')}`;
     };
 
+    const formatBpmChanges = (changes) => {
+      const list = (changes || []).filter(Boolean);
+      if (list.length === 0) return 'Base BPM Changes: (none)';
+      return `Base BPM Changes:\n${list.map(item => `- ${item}`).join('\n')}`;
+    };
+
     setSelectedCommit({
       ...commit,
       formattedDetails: `Commit: ${commit.id}
@@ -572,7 +835,8 @@ ${formatCommitMessage(commit.message)}
 
 ${formatFileList('Added', commit.addedFiles)}
 ${formatFileList('Deleted', commit.deletedFiles)}
-${formatFileList('Modified', commit.modifiedFiles)}`
+${formatFileList('Modified', commit.modifiedFiles)}
+${formatBpmChanges(commit.baseBpmChanges)}`
     });
   };
 
@@ -753,7 +1017,7 @@ ${formatFileList('Modified', commit.modifiedFiles)}`
     };
 
     verifyToken();
-  }, [user, handleRefreshRepo]);
+  }, [user, handleRefreshRepo, serverPath]);
   useEffect(() => {
     const checkGit = async () => {
       try {
@@ -803,6 +1067,15 @@ ${formatFileList('Modified', commit.modifiedFiles)}`
             Login
           </button>
         )}
+        <button
+          className="settings-button"
+          onClick={() => setShowSettings(true)}
+          disabled={isRunningDiagnostics}
+          title="Configure backend server address"
+          type="button"
+        >
+          Settings
+        </button>
       </div>
 
       <div className="main-grid">
@@ -904,14 +1177,6 @@ ${formatFileList('Modified', commit.modifiedFiles)}`
             <div className="repo-buttons">
               <button className="repo-action-button" onClick={handleRefreshRepo} disabled={isLoadingRepos}>
                 {isLoadingRepos ? 'Загрузка...' : 'Обновить'}
-              </button>
-              <button
-                className="repo-action-button"
-                onClick={handleRunDiagnostics}
-                disabled={isRunningDiagnostics}
-                title="Check backend, Gitea proxy, auth token and local git remote"
-              >
-                {isRunningDiagnostics ? 'Checking...' : 'Diagnostics'}
               </button>
               <button
                 className="repo-action-button"
@@ -1109,6 +1374,18 @@ ${formatFileList('Modified', commit.modifiedFiles)}`
             user={user}
             onClose={() => setShowCreateRepo(false)}
             onCreate={handleCreateRepo}
+          />
+        )}
+
+        {showSettings && (
+          <SettingsWindow
+            initialServerPath={serverPath}
+            onClose={() => setShowSettings(false)}
+            onSave={(nextServerPath) => {
+              setServerPath(nextServerPath);
+              localStorage.setItem('serverPath', nextServerPath);
+            }}
+            onRunDiagnostics={() => runFullDiagnostics()}
           />
         )}
       </div>
