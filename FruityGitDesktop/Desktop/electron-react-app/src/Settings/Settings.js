@@ -25,7 +25,7 @@ export default function SettingsWindow({ initialServerPath, onClose, onSave, onR
     setError('');
     const next = normalizeServerPath(serverAddress);
     if (!next) {
-      setError('Server address is required.');
+      setError('Требуется адрес сервера.');
       return;
     }
 
@@ -34,7 +34,7 @@ export default function SettingsWindow({ initialServerPath, onClose, onSave, onR
       // eslint-disable-next-line no-new
       new URL(next);
     } catch {
-      setError('Invalid server address. Example: http://192.168.1.218:3000');
+      setError('Некорректный адрес сервера. Пример: http://192.168.1.218:3000');
       return;
     }
 
@@ -43,7 +43,7 @@ export default function SettingsWindow({ initialServerPath, onClose, onSave, onR
       await onSave(next);
       onClose();
     } catch (e) {
-      setError(e?.message || 'Failed to save settings');
+      setError(e?.message || 'Не удалось сохранить настройки');
     } finally {
       setIsSaving(false);
     }
@@ -57,10 +57,10 @@ export default function SettingsWindow({ initialServerPath, onClose, onSave, onR
     try {
       const report = await (onRunDiagnostics
         ? onRunDiagnostics()
-        : Promise.resolve('Diagnostics handler is not configured.'));
+        : Promise.resolve('Обработчик диагностики не настроен.'));
       setDiagReport(String(report || ''));
     } catch (e) {
-      setDiagError(e?.message || 'Diagnostics failed');
+      setDiagError(e?.message || 'Диагностика завершилась с ошибкой');
     } finally {
       setIsRunningDiagnostics(false);
     }
@@ -70,7 +70,7 @@ export default function SettingsWindow({ initialServerPath, onClose, onSave, onR
     <div className="settings-modal-overlay">
       <div className="settings-window">
         <div className="settings-header">
-          <h2>Settings</h2>
+          <h2>Настройки</h2>
           <button className="close-button" onClick={onClose} disabled={isSaving}>
             ×
           </button>
@@ -78,7 +78,7 @@ export default function SettingsWindow({ initialServerPath, onClose, onSave, onR
 
         <div className="settings-content">
           <div className="input-group">
-            <label>Server address</label>
+            <label>Адрес сервера</label>
             <input
               type="text"
               className="settings-input"
@@ -93,10 +93,10 @@ export default function SettingsWindow({ initialServerPath, onClose, onSave, onR
 
           <div className="settings-actions">
             <button className="cancel-button" onClick={onClose} disabled={isSaving} type="button">
-              Cancel
+              Отмена
             </button>
             <button className="create-button" onClick={handleSave} disabled={isSaving} type="button">
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
 
@@ -108,9 +108,9 @@ export default function SettingsWindow({ initialServerPath, onClose, onSave, onR
               onClick={handleRunDiagnostics}
               disabled={isSaving || isRunningDiagnostics}
               type="button"
-              title="Run end-to-end connectivity and git workflow checks"
+              title="Запустить комплексную проверку подключения и git-процесса"
             >
-              {isRunningDiagnostics ? 'Running...' : 'Run Diagnostics'}
+              {isRunningDiagnostics ? 'Выполняется...' : 'Запустить диагностику'}
             </button>
 
             {diagError && <div className="error-message">{diagError}</div>}

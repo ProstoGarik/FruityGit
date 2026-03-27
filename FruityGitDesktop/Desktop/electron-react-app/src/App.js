@@ -99,7 +99,7 @@ function App() {
     const originUrl = await window.electronAPI.git.getOriginUrl(localRepoPath);
     const parsed = extractOwnerRepoFromRemoteUrl(originUrl);
     if (!parsed) {
-      throw new Error('Unable to determine local repository remote. Please select the correct folder.');
+      throw new Error('Не удалось определить удалённый репозиторий для локальной папки. Выберите корректную папку.');
     }
 
     const ownerOk = String(parsed.owner).toLowerCase() === String(expectedOwner).toLowerCase();
@@ -112,7 +112,7 @@ function App() {
   const ensureLocalRepoFor = async (repoRef, ownerName) => {
     const { owner, name: repo, fullName } = parseRepoRef(repoRef, ownerName);
     if (!repo || !owner) {
-      throw new Error('Invalid repository reference');
+      throw new Error('Некорректная ссылка на репозиторий');
     }
 
     const mappedPath = repoPathMap[fullName] || repoPathMap[repo];
@@ -149,7 +149,7 @@ function App() {
     const cloneTargetPath = candidateSubRepoPath;
     const isEmpty = await window.electronAPI.dirIsEmpty(cloneTargetPath);
     if (!isEmpty) {
-      throw new Error('Selected folder is not empty and does not contain a git repository for this project.');
+      throw new Error('Выбранная папка не пустая и не содержит git-репозиторий этого проекта.');
     }
 
     const repoInfo = await getRepoInfo(owner, repo);
@@ -165,7 +165,7 @@ function App() {
 
   const getRepoInfo = async (owner, repo) => {
     const response = await fetchWithGitea(`${serverPath}/gitea/api/v1/repos/${owner}/${repo}`, { method: 'GET' });
-    if (!response.ok) throw new Error('Failed to get repository info');
+    if (!response.ok) throw new Error('Не удалось получить информацию о репозитории');
     return response.json();
   };
 
@@ -198,12 +198,12 @@ function App() {
 
     try {
       if (!user) {
-        alert('Please login first');
+        alert('Сначала выполните вход');
         return;
       }
 
       if (!selectedRepo) {
-        alert('Please select a repository first');
+        alert('Сначала выберите репозиторий');
         return;
       }
 
@@ -213,7 +213,7 @@ function App() {
       const stageFileInLocalRepo = async (sourcePath, localPath) => {
         const fileContent = await window.electronAPI.readFile(sourcePath);
         if (!fileContent) {
-          throw new Error('Failed to read file');
+          throw new Error('Не удалось прочитать файл');
         }
 
         const fileName = sourcePath.split(/[\\/]/).pop();
@@ -223,7 +223,7 @@ function App() {
 
         const addResult = await window.electronAPI.git.add(localPath, destinationPath);
         if (!addResult.success) {
-          throw new Error(addResult.error || 'Failed to stage file');
+          throw new Error(addResult.error || 'Не удалось добавить файл в индекс');
         }
 
         return destinationPath;
@@ -234,7 +234,7 @@ function App() {
         const zipPath = await window.electronAPI.runPythonProcessor(filePath);
         const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
         if (!localPath) {
-          alert('Please select a folder to clone the repository');
+          alert('Выберите папку для клонирования репозитория');
           return;
         }
 
@@ -251,21 +251,21 @@ function App() {
 
         const addResult = await window.electronAPI.git.add(localPath, extractTo);
         if (!addResult.success) {
-          throw new Error(addResult.error || 'Failed to stage extracted files');
+          throw new Error(addResult.error || 'Не удалось добавить распакованные файлы в индекс');
         }
 
         setAttachedFile(extractTo);
-        alert('Archive extracted and added to local repository. Click Commit to create a commit.');
+        alert('Архив распакован и добавлен в локальный репозиторий. Нажмите «Коммит», чтобы создать коммит.');
         return extractTo;
       } else {
         const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
         if (!localPath) {
-          alert('Please select a folder to clone the repository');
+          alert('Выберите папку для клонирования репозитория');
           return;
         }
         const stagedPath = await stageFileInLocalRepo(filePath, localPath);
         setAttachedFile(stagedPath);
-        alert('File added to local repository. Click Commit to create a commit.');
+        alert('Файл добавлен в локальный репозиторий. Нажмите «Коммит», чтобы создать коммит.');
         return stagedPath;
       }
     } catch (error) {
@@ -282,27 +282,27 @@ function App() {
   const handleSend = async () => {
     try {
       if (!selectedRepo) {
-        alert('Please select a repository first');
+        alert('Сначала выберите репозиторий');
         return;
       }
 
       if (!user) {
-        alert('Please login first');
+        alert('Сначала выполните вход');
         return;
       }
 
       if (!localRepoPath) {
-        alert('Please select a local repository');
+        alert('Выберите локальный репозиторий');
           return;
         }
 
       await GitService.pushToServer(localRepoPath, 'main');
 
-      alert('Changes successfully pushed to remote repository!');
+      alert('Изменения успешно отправлены в удалённый репозиторий!');
       await handleShowRepo(selectedRepo);
     } catch (error) {
       console.error('Send error:', error);
-      alert(`Error: ${error.message}`);
+      alert(`Ошибка: ${error.message}`);
       throw error;
     }
   };
@@ -326,7 +326,7 @@ function App() {
     try {
       const localPath = await ensureLocalRepoFor(repo, user.name);
       if (!localPath) {
-        alert('Please select a folder to clone the repository');
+        alert('Выберите папку для клонирования репозитория');
         return;
       }
 
@@ -341,7 +341,7 @@ function App() {
 
   const handleChooseLocalFolder = async () => {
     if (!selectedRepo) {
-      alert('Please select a remote repository first');
+      alert('Сначала выберите удалённый репозиторий');
       return;
     }
 
@@ -349,12 +349,12 @@ function App() {
       const folderPath = await window.electronAPI.openFolderDialog();
       if (!folderPath) return;
       if (!user) {
-        throw new Error('Please login first');
+        throw new Error('Сначала выполните вход');
       }
 
       const { owner, name, fullName } = parseRepoRef(selectedRepo, user?.name);
       if (!name || !owner) {
-        throw new Error('Invalid repository selection');
+        throw new Error('Некорректный выбор репозитория');
       }
 
       const candidateSelfRepoPath = folderPath;
@@ -379,7 +379,7 @@ function App() {
       // If folder is empty for <folder>/<repo>, clone; otherwise error
       const isEmpty = await window.electronAPI.dirIsEmpty(candidateSubRepoPath);
       if (!isEmpty) {
-        throw new Error('Selected folder is not empty and does not contain a git repository for this project.');
+        throw new Error('Выбранная папка не пустая и не содержит git-репозиторий этого проекта.');
       }
 
       const repoInfo = await getRepoInfo(owner, name);
@@ -390,7 +390,7 @@ function App() {
       setLocalRepoPath(candidateSubRepoPath);
     } catch (error) {
       console.error('Error choosing folder:', error);
-      alert(`Error: ${error.message}`);
+      alert(`Ошибка: ${error.message}`);
     }
   };
 
@@ -422,15 +422,15 @@ function App() {
   }, [user, serverPath]);
 
   const runFullDiagnostics = async () => {
-    if (isRunningDiagnostics) return 'Diagnostics already running.';
-    if (!user) throw new Error('Please login first.');
-    if (!window.electronAPI) throw new Error('Electron API is not available.');
+    if (isRunningDiagnostics) return 'Диагностика уже запущена.';
+    if (!user) throw new Error('Сначала выполните вход.');
+    if (!window.electronAPI) throw new Error('Electron API недоступен.');
 
     setIsRunningDiagnostics(true);
 
     const lines = [];
     const addLine = (label, ok, details = '') => {
-      const status = ok ? 'OK' : 'FAIL';
+      const status = ok ? 'ОК' : 'ОШИБКА';
       lines.push(`${status} | ${label}${details ? ` | ${details}` : ''}`);
     };
 
@@ -463,29 +463,29 @@ function App() {
     let privateRepoName = null;
 
     try {
-      addLine('Backend health endpoint', true);
+      addLine('Проверка health endpoint backend', true);
       try {
         const response = await fetchWithTimeout(`${serverPath}/health`);
-        addLine('Backend health endpoint', response.ok, `HTTP ${response.status}`);
+        addLine('Проверка health endpoint backend', response.ok, `HTTP ${response.status}`);
       } catch (error) {
-        addLine('Backend health endpoint', false, error.message);
+        addLine('Проверка health endpoint backend', false, error.message);
       }
 
       try {
         const response = await fetchWithTimeout(`${serverPath}/gitea/api/v1/version`);
-        addLine('Gitea proxy endpoint', response.ok, `HTTP ${response.status}`);
+        addLine('Проверка proxy endpoint Gitea', response.ok, `HTTP ${response.status}`);
       } catch (error) {
-        addLine('Gitea proxy endpoint', false, error.message);
+        addLine('Проверка proxy endpoint Gitea', false, error.message);
       }
 
-      addLine('Gitea token in localStorage', !!currentGiteaToken, currentGiteaToken ? 'present' : 'missing');
-      if (!currentGiteaToken) throw new Error('Gitea token missing in localStorage (login required).');
+      addLine('Токен Gitea в localStorage', !!currentGiteaToken, currentGiteaToken ? 'есть' : 'отсутствует');
+      if (!currentGiteaToken) throw new Error('Токен Gitea не найден в localStorage (требуется вход).');
 
       try {
         await GitService.checkGitInstalled();
-        addLine('Git installed', true);
+        addLine('Git установлен', true);
       } catch (error) {
-        addLine('Git installed', false, error.message);
+        addLine('Git установлен', false, error.message);
       }
 
       // Create local temp directory for git clones and test files.
@@ -512,13 +512,13 @@ function App() {
         return response.json();
       };
 
-      addLine('Creating public test repo', true);
+      addLine('Создание публичного тестового репозитория', true);
       const publicRepo = await createRepo(publicRepoName, false);
-      addLine('Creating public test repo', !!publicRepo?.name, publicRepo?.name || 'missing name');
+      addLine('Создание публичного тестового репозитория', !!publicRepo?.name, publicRepo?.name || 'имя отсутствует');
 
-      addLine('Creating private test repo', true);
+      addLine('Создание приватного тестового репозитория', true);
       const privateRepo = await createRepo(privateRepoName, true);
-      addLine('Creating private test repo', !!privateRepo?.name, privateRepo?.name || 'missing name');
+      addLine('Создание приватного тестового репозитория', !!privateRepo?.name, privateRepo?.name || 'имя отсутствует');
 
       // OWNER: clone before push to test pull
       const publicCloneBefore = window.electronAPI.pathJoin(tempBase, 'publicBefore');
@@ -529,10 +529,10 @@ function App() {
       const remotePrivateUrl = `${serverPath}/gitea/${ownerName}/${privateRepoName}.git`;
 
       await GitService.cloneRepo(remotePublicUrl, publicCloneBefore, user);
-      addLine('Clone public repo (before push)', true, publicCloneBefore);
+      addLine('Клонирование публичного репозитория (до push)', true, publicCloneBefore);
 
       await GitService.cloneRepo(remotePublicUrl, publicCloneAfter, user);
-      addLine('Clone public repo (after push)', true, publicCloneAfter);
+      addLine('Клонирование публичного репозитория (после push)', true, publicCloneAfter);
 
       // Commit #1: add file
       const uploadsDirA = window.electronAPI.pathJoin(publicCloneAfter, 'uploads');
@@ -542,46 +542,46 @@ function App() {
 
       await GitService.commitFile(publicCloneAfter, diagFile1, 'Diag v1', 'add', user);
       await GitService.pushToServer(publicCloneAfter, 'main');
-      addLine('Commit v1 + push (public)', true);
+      addLine('Коммит v1 + push (публичный)', true);
 
       // Pull into cloneBefore
       await GitService.pullFromServer(publicCloneBefore, 'main');
       const diagFile1InBefore = window.electronAPI.pathJoin(publicCloneBefore, 'uploads', 'diag1.txt');
       const existsAfterV1 = await window.electronAPI.fileExists(diagFile1InBefore);
-      addLine('Pull public repo after push (file exists)', existsAfterV1, existsAfterV1 ? 'diag1.txt present' : 'diag1.txt missing');
+      addLine('Pull публичного репозитория после push (файл существует)', existsAfterV1, existsAfterV1 ? 'diag1.txt присутствует' : 'diag1.txt отсутствует');
 
       // Commit #2: modify file
       await window.electronAPI.writeFile(diagFile1, 'v2');
       await GitService.commitFile(publicCloneAfter, diagFile1, 'Diag v2', 'modify', user);
       await GitService.pushToServer(publicCloneAfter, 'main');
-      addLine('Commit v2 + push (public)', true);
+      addLine('Коммит v2 + push (публичный)', true);
 
       await GitService.pullFromServer(publicCloneBefore, 'main');
 
       const publicHistory = await GitService.getLocalHistory(publicCloneBefore, 10);
       const commitV2 = publicHistory.find(c => c.summary === 'Diag v2');
       const diagInHistoryV2Modified = (commitV2?.modifiedFiles || []).includes('uploads/diag1.txt');
-      addLine('Commit details: diag1 tracked as modified', diagInHistoryV2Modified, diagInHistoryV2Modified ? 'modifiedFiles contains uploads/diag1.txt' : 'modifiedFiles empty/missing');
+      addLine('Детали коммита: diag1 отмечен как изменённый', diagInHistoryV2Modified, diagInHistoryV2Modified ? 'modifiedFiles содержит uploads/diag1.txt' : 'modifiedFiles пуст/отсутствует');
 
       // Commit #3: delete file
       await window.electronAPI.rmrf(diagFile1);
       await window.electronAPI.git.add(publicCloneAfter, '.');
       await window.electronAPI.git.commit(publicCloneAfter, 'Diag delete_summEnd_delete', { name: user.name, email: user.email });
       await GitService.pushToServer(publicCloneAfter, 'main');
-      addLine('Commit delete + push (public)', true);
+      addLine('Коммит удаления + push (публичный)', true);
 
       await GitService.pullFromServer(publicCloneBefore, 'main');
       const existsAfterDelete = await window.electronAPI.fileExists(diagFile1InBefore);
-      addLine('Pull public repo after delete (file absent)', !existsAfterDelete, existsAfterDelete ? 'diag1.txt still exists' : 'diag1.txt removed');
+      addLine('Pull публичного репозитория после удаления (файл отсутствует)', !existsAfterDelete, existsAfterDelete ? 'diag1.txt всё ещё существует' : 'diag1.txt удалён');
 
       const publicHistory2 = await GitService.getLocalHistory(publicCloneBefore, 10);
       const commitDelete = publicHistory2.find(c => c.summary === 'Diag delete');
       const diagInHistoryDeleted = (commitDelete?.deletedFiles || []).includes('uploads/diag1.txt');
-      addLine('Commit details: diag1 tracked as deleted', diagInHistoryDeleted, diagInHistoryDeleted ? 'deletedFiles contains uploads/diag1.txt' : 'deletedFiles empty/missing');
+      addLine('Детали коммита: diag1 отмечен как удалённый', diagInHistoryDeleted, diagInHistoryDeleted ? 'deletedFiles содержит uploads/diag1.txt' : 'deletedFiles пуст/отсутствует');
 
       // OWNER: private repo commit
       await GitService.cloneRepo(remotePrivateUrl, privateCloneOwner, user);
-      addLine('Clone private repo (owner)', true, privateCloneOwner);
+      addLine('Клонирование приватного репозитория (владелец)', true, privateCloneOwner);
 
       const privateUploadsDir = window.electronAPI.pathJoin(privateCloneOwner, 'uploads');
       const privateFile = window.electronAPI.pathJoin(privateUploadsDir, 'secret.txt');
@@ -589,7 +589,7 @@ function App() {
       await window.electronAPI.writeFile(privateFile, 'secret');
       await GitService.commitFile(privateCloneOwner, privateFile, 'Private diag', 'add', user);
       await GitService.pushToServer(privateCloneOwner, 'main');
-      addLine('Private commit + push (owner)', true);
+      addLine('Приватный коммит + push (владелец)', true);
 
       // Contributor: register + login (get their gitea token)
       const randomSuffix = Math.random().toString(36).slice(2, 8);
@@ -609,7 +609,7 @@ function App() {
       });
 
       if (!registerRes.ok) {
-        throw new Error(`Failed to register contributor: ${await registerRes.text()}`);
+        throw new Error(`Не удалось зарегистрировать участника: ${await registerRes.text()}`);
       }
 
       const loginRes = await fetch(`${serverPath}/api/auth/login`, {
@@ -619,13 +619,13 @@ function App() {
       });
 
       if (!loginRes.ok) {
-        throw new Error(`Failed to login contributor: ${await loginRes.text()}`);
+        throw new Error(`Не удалось выполнить вход участника: ${await loginRes.text()}`);
       }
 
       const loginPayload = await loginRes.json();
       const contributorGiteaToken = loginPayload?.giteaToken;
       if (!contributorGiteaToken) {
-        throw new Error('Contributor gitea token missing from login response.');
+        throw new Error('В ответе входа отсутствует токен Gitea для участника.');
       }
 
       // Contributor: view public repo should be allowed
@@ -633,14 +633,14 @@ function App() {
         `${serverPath}/gitea/api/v1/repos/${ownerName}/${publicRepoName}`,
         contributorGiteaToken
       );
-      addLine('Contributor can view public repo', publicInfoRes.ok, `HTTP ${publicInfoRes.status}`);
+      addLine('Участник может просматривать публичный репозиторий', publicInfoRes.ok, `HTTP ${publicInfoRes.status}`);
 
       // Contributor: view private repo should fail before allow-user
       const privateInfoBefore = await fetchWithToken(
         `${serverPath}/gitea/api/v1/repos/${ownerName}/${privateRepoName}`,
         contributorGiteaToken
       );
-      addLine('Contributor cannot view private repo (before allow)', !privateInfoBefore.ok, `HTTP ${privateInfoBefore.status}`);
+      addLine('Участник не может просматривать приватный репозиторий (до выдачи доступа)', !privateInfoBefore.ok, `HTTP ${privateInfoBefore.status}`);
 
       // Contributor: clone private repo should fail before allow
       const contributorCloneBefore = window.electronAPI.pathJoin(tempBase, 'contribPrivateBefore');
@@ -659,13 +659,13 @@ function App() {
         contributorCloneBeforeErr = e?.message || String(e);
       }
       addLine(
-        'Contributor clone private fails (before allow)',
+        'Клонирование приватного репозитория участником не проходит (до выдачи доступа)',
         !contributorCloneBeforeOk,
-        contributorCloneBeforeOk ? `unexpected success${contributorCloneBeforeErr ? `: ${contributorCloneBeforeErr}` : ''}` : `clone rejected${contributorCloneBeforeErr ? `: ${contributorCloneBeforeErr}` : ''}`
+        contributorCloneBeforeOk ? `неожиданный успех${contributorCloneBeforeErr ? `: ${contributorCloneBeforeErr}` : ''}` : `клонирование отклонено${contributorCloneBeforeErr ? `: ${contributorCloneBeforeErr}` : ''}`
       );
 
       // Allow contributor to private repo using backend endpoint
-      if (!accessToken) throw new Error('Owner access token missing.');
+      if (!accessToken) throw new Error('Отсутствует токен доступа владельца.');
       const allowRes = await fetch(`${serverPath}/api/git/${encodeURIComponent(ownerName)}/${encodeURIComponent(privateRepoName)}/allow-user`, {
         method: 'POST',
         headers: {
@@ -676,14 +676,14 @@ function App() {
       });
 
       const allowPayload = await allowRes.json().catch(() => ({}));
-      addLine('Owner grants contributor write via allow-user', allowRes.ok, allowPayload?.message || `HTTP ${allowRes.status}`);
+      addLine('Владелец выдаёт участнику право записи через allow-user', allowRes.ok, allowPayload?.message || `HTTP ${allowRes.status}`);
 
       // Contributor: view private repo should work now
       const privateInfoAfter = await fetchWithToken(
         `${serverPath}/gitea/api/v1/repos/${ownerName}/${privateRepoName}`,
         contributorGiteaToken
       );
-      addLine('Contributor can view private repo (after allow)', privateInfoAfter.ok, `HTTP ${privateInfoAfter.status}`);
+      addLine('Участник может просматривать приватный репозиторий (после выдачи доступа)', privateInfoAfter.ok, `HTTP ${privateInfoAfter.status}`);
 
       // Contributor: clone private repo and push a commit
       const contributorCloneAfter = window.electronAPI.pathJoin(tempBase, 'contribPrivateAfter');
@@ -693,7 +693,7 @@ function App() {
         token: contributorGiteaToken
       });
       if (!contributorCloneAfterRes?.success) {
-        throw new Error(contributorCloneAfterRes?.error || 'Contributor clone after allow failed.');
+        throw new Error(contributorCloneAfterRes?.error || 'Клонирование участником после выдачи доступа не удалось.');
       }
 
       const contributorUploadsDir = window.electronAPI.pathJoin(contributorCloneAfter, 'uploads');
@@ -707,17 +707,17 @@ function App() {
         password: contributorGiteaToken,
         token: contributorGiteaToken
       });
-      addLine('Contributor commit + push to private repo', true);
+      addLine('Коммит и push участника в приватный репозиторий', true);
 
       // Verify owner clone can pull new file
       await GitService.pullFromServer(privateCloneOwner, 'main');
       const contributorFileInOwner = window.electronAPI.pathJoin(privateCloneOwner, 'uploads', 'contrib.txt');
       const contributorFileExists = await window.electronAPI.fileExists(contributorFileInOwner);
-      addLine('Owner pulls contributor file', contributorFileExists, contributorFileExists ? 'contrib.txt present' : 'contrib.txt missing');
+      addLine('Владелец получает файл участника', contributorFileExists, contributorFileExists ? 'contrib.txt присутствует' : 'contrib.txt отсутствует');
 
       return lines.join('\n');
     } catch (error) {
-      lines.push(`FAIL | Diagnostics error | ${error?.message || error}`);
+      lines.push(`ОШИБКА | Ошибка диагностики | ${error?.message || error}`);
       return lines.join('\n');
     } finally {
       setIsRunningDiagnostics(false);
@@ -751,29 +751,29 @@ function App() {
 
   const handleAllowUser = async () => {
     if (!user) {
-      alert('Please login first');
+      alert('Сначала выполните вход');
       return;
     }
 
     if (!selectedRepo) {
-      alert('Please select a repository first');
+      alert('Сначала выберите репозиторий');
       return;
     }
 
     const email = allowUserEmail.trim();
     if (!email) {
-      alert('Please enter an email');
+      alert('Введите email');
       return;
     }
 
     const { owner, name } = parseRepoRef(selectedRepo, user.name);
     if (!owner || !name) {
-      alert('Invalid repository selection');
+      alert('Некорректный выбор репозитория');
       return;
     }
 
     if (owner.toLowerCase() !== (user.name || '').toLowerCase()) {
-      alert('Only repository owner can allow contributors.');
+      alert('Добавлять участников может только владелец репозитория.');
       return;
     }
 
@@ -790,14 +790,14 @@ function App() {
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(payload?.message || payload?.Message || 'Failed to allow user');
+        throw new Error(payload?.message || payload?.Message || 'Не удалось добавить пользователя');
       }
 
       setAllowUserEmail('');
-      alert(payload?.message || payload?.Message || 'User now has push access');
+      alert(payload?.message || payload?.Message || 'Пользователь теперь имеет доступ на отправку изменений');
     } catch (error) {
       console.error('Allow user error:', error);
-      alert(`Failed to allow user: ${error.message}`);
+      alert(`Не удалось добавить пользователя: ${error.message}`);
     } finally {
       setIsAllowingUser(false);
     }
@@ -810,63 +810,63 @@ function App() {
     const formatCommitMessage = (message) => {
       if (message.includes('_summEnd_')) {
         const [summary, description] = message.split('_summEnd_');
-        return `Summary: ${summary.trim()}\n\nDescription: ${description.trim()}`;
+        return `Кратко: ${summary.trim()}\n\nОписание: ${description.trim()}`;
       }
-      return `Summary: ${message.trim()}`;
+      return `Кратко: ${message.trim()}`;
     };
 
     const formatFileList = (label, files) => {
       const list = (files || []).filter(Boolean);
-      if (list.length === 0) return `${label}: (none)`;
+      if (list.length === 0) return `${label}: (нет)`;
       return `${label}:\n${list.map(f => `- ${f}`).join('\n')}`;
     };
 
     const formatBpmChanges = (changes) => {
       const list = (changes || []).filter(Boolean);
-      if (list.length === 0) return 'Base BPM Changes: (none)';
-      return `Base BPM Changes:\n${list.map(item => `- ${item}`).join('\n')}`;
+      if (list.length === 0) return 'Изменения базового BPM: (нет)';
+      return `Изменения базового BPM:\n${list.map(item => `- ${item}`).join('\n')}`;
     };
 
     setSelectedCommit({
       ...commit,
-      formattedDetails: `Commit: ${commit.id}
-Author: ${commit.author} <${commit.email}>
-Date: ${new Date(commit.date).toLocaleString()}
+      formattedDetails: `Коммит: ${commit.id}
+Автор: ${commit.author} <${commit.email}>
+Дата: ${new Date(commit.date).toLocaleString()}
 
 ${formatCommitMessage(commit.message)}
 
-${formatFileList('Added', commit.addedFiles)}
-${formatFileList('Deleted', commit.deletedFiles)}
-${formatFileList('Modified', commit.modifiedFiles)}
+${formatFileList('Добавлено', commit.addedFiles)}
+${formatFileList('Удалено', commit.deletedFiles)}
+${formatFileList('Изменено', commit.modifiedFiles)}
 ${formatBpmChanges(commit.baseBpmChanges)}`
     });
   };
 
   const formatPluginList = (title, list) => {
     const safeList = (list || []).filter(Boolean);
-    if (safeList.length === 0) return `${title}: (none)`;
+    if (safeList.length === 0) return `${title}: (нет)`;
     return `${title}:\n${safeList.map(item => `- ${item}`).join('\n')}`;
   };
 
   const getSelectedCommitPluginsText = () => {
     if (!selectedCommit?.pluginSnapshot) {
-      return 'No plugin data found for this commit.';
+      return 'Для этого коммита данные о плагинах не найдены.';
     }
 
     const generators = selectedCommit.pluginSnapshot.generators || [];
     const effects = selectedCommit.pluginSnapshot.effects || [];
 
     return [
-      formatPluginList('Generators', generators),
+      formatPluginList('Генераторы', generators),
       '',
-      formatPluginList('Effects', effects)
+      formatPluginList('Эффекты', effects)
     ].join('\n');
   };
 
 
   const handleDownloadRepo = async () => {
     if (!selectedRepo || !user) {
-      alert('Please select a repository and ensure you are logged in');
+      alert('Выберите репозиторий и убедитесь, что вы вошли в систему');
       return;
     }
 
@@ -875,17 +875,17 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
       if (!clonePath) return;
 
       // Уведомляем пользователя об успешном клонировании
-      alert(`Repository cloned to: ${clonePath}\nYou can zip it manually if needed.`);
+      alert(`Репозиторий клонирован в: ${clonePath}\nПри необходимости архив можно создать вручную.`);
     } catch (error) {
       console.error('Download error:', error);
-      alert(`Download error: ${error.message}`);
+      alert(`Ошибка скачивания: ${error.message}`);
     }
   };
 
   // Handle "Clone to Local" button
   const handleCloneToLocal = async () => {
     if (!selectedRepo || !user) {
-      alert('Please select a repository and login first');
+      alert('Выберите репозиторий и сначала выполните вход');
       return;
     }
     try {
@@ -896,12 +896,12 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
       const { name, fullName } = parseRepoRef(selectedRepo, user?.name);
       setRepoPathMap(prev => ({ ...prev, [name || selectedRepo]: localPath, [fullName || selectedRepo]: localPath }));
       setLocalRepoPath(localPath);
-      alert(`Repository cloned to: ${localPath}`);
+      alert(`Репозиторий клонирован в: ${localPath}`);
       const localCommits = await GitService.getLocalHistory(localPath);
       setCommits(localCommits);
     } catch (error) {
       console.error('Clone error:', error);
-      alert(`Failed to clone: ${error.message}`);
+      alert(`Не удалось клонировать: ${error.message}`);
     } finally {
       setIsLoadingRepos(false);
     }
@@ -910,24 +910,24 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
   // Handle "Commit to Local" (instead of sending to server directly)
   const handleCommitToLocal = async () => {
     if (!localRepoPath || !summary) {
-      alert('Please select a local repo and add a summary');
+      alert('Выберите локальный репозиторий и добавьте краткое описание');
       return;
     }
 
     try {
       const statusResult = await window.electronAPI.git.status(localRepoPath);
       if (!statusResult.success) {
-        throw new Error(statusResult.error || 'Failed to get repository status');
+        throw new Error(statusResult.error || 'Не удалось получить статус репозитория');
       }
 
       if (statusResult.status.isClean) {
-        alert('No staged changes found. Use Attach file first.');
+        alert('Нет подготовленных изменений. Сначала используйте «Прикрепить файл».');
         return;
       }
 
       await GitService.commitStagedChanges(localRepoPath, summary, description, user);
 
-      alert('File committed to local repository!');
+      alert('Файл закоммичен в локальный репозиторий!');
 
       // Refresh local history view
       const localCommits = await GitService.getLocalHistory(localRepoPath);
@@ -940,14 +940,14 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
 
     } catch (error) {
       console.error('Local commit error:', error);
-      alert(`Commit failed: ${error.message}`);
+      alert(`Ошибка коммита: ${error.message}`);
     }
   };
 
   // Handle "Push to Server" (sync local -> remote)
   const handlePushToServer = async () => {
     if (!localRepoPath) {
-      alert('Please select a local repository');
+      alert('Выберите локальный репозиторий');
       return;
     }
     try {
@@ -958,13 +958,13 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
           const repoInfo = await getRepoInfo(owner, name);
           const canPush = repoInfo?.permissions?.push === true;
           if (!canPush) {
-            throw new Error(`No write permission for ${owner}/${name}. Current user can read but cannot push.`);
+            throw new Error(`Нет права записи для ${owner}/${name}. Текущий пользователь может читать, но не может отправлять изменения.`);
           }
         }
       }
 
       await GitService.pushToServer(localRepoPath, 'main');
-      alert('Changes pushed to server successfully!');
+      alert('Изменения успешно отправлены на сервер!');
       await handleRefreshRepo();
       if (selectedRepo) {
         await handleShowRepo(selectedRepo);
@@ -972,9 +972,9 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
     } catch (error) {
       console.error('Push error:', error);
       if (error?.message?.includes('User permission denied for writing')) {
-        alert('Push failed: current account has read-only access to this repository. Ask repo owner to grant Write permission or use a token from a user with push access.');
+        alert('Отправка не удалась: у текущей учётной записи только доступ на чтение. Попросите владельца выдать право записи или используйте токен пользователя с доступом на отправку.');
       } else {
-        alert(`Push failed: ${error.message}`);
+        alert(`Ошибка отправки: ${error.message}`);
       }
     } finally {
       setIsLoadingRepos(false);
@@ -985,21 +985,21 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
   // Handle "Pull from Server" (sync remote -> local)
   const handlePullFromServer = async () => {
     if (!localRepoPath) {
-      alert('Please select a local repository first');
+      alert('Сначала выберите локальный репозиторий');
       return;
     }
 
     try {
       setIsLoadingRepos(true);
       await GitService.pullFromServer(localRepoPath, 'main');
-      alert('Pulled latest changes from server');
+      alert('Последние изменения с сервера успешно получены');
 
       // Refresh local history
       const localCommits = await GitService.getLocalHistory(localRepoPath);
       setCommits(localCommits);
     } catch (error) {
       console.error('Pull error:', error);
-      alert(`Pull failed: ${error.message}`);
+      alert(`Ошибка получения: ${error.message}`);
     } finally {
       setIsLoadingRepos(false);
     }
@@ -1074,30 +1074,34 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
     <div className="app-container">
       {/* Top Bar */}
       <div className="top-bar">
+        <div className="app-brand">
+          <span className="app-brand-title">FruityGit Desktop</span>
+          <span className="app-brand-subtitle">Совместная работа над проектами FL Studio</span>
+        </div>
         {user ? (
           <div className="user-info">
-            <span>Logged in as: {user.name || user.email}</span>
+            <span className="user-label">Выполнен вход: {user.name || user.email}</span>
             <button className="logout-button" onClick={() => {
               setUser(null);
               localStorage.removeItem('user');
               clearAppState();  // Add this line
             }}>
-              Logout
+              Выйти
             </button>
           </div>
         ) : (
           <button className="login-button" onClick={handleLogin}>
-            Login
+            Вход
           </button>
         )}
         <button
           className="settings-button"
           onClick={() => setShowSettings(true)}
           disabled={isRunningDiagnostics}
-          title="Configure backend server address"
+          title="Настроить адрес сервера"
           type="button"
         >
-          Settings
+          Настройки
         </button>
       </div>
 
@@ -1192,7 +1196,7 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                     </li>
                   ))
                 ) : (
-                  <li>No repositories found</li>
+                  <li>Репозитории не найдены</li>
                 )}
               </ul>
             </div>
@@ -1212,44 +1216,44 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                 const { owner } = parseRepoRef(selectedRepo, user?.name);
                 return owner && owner.toLowerCase() === (user?.name || '').toLowerCase();
               })() && (
-                <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="allow-user-row">
                   <input
                     type="email"
                     className="repo-input"
-                    placeholder="Contributor email"
+                    placeholder="Email участника"
                     value={allowUserEmail}
                     onChange={(e) => setAllowUserEmail(e.target.value)}
                     disabled={isAllowingUser}
-                    style={{ maxWidth: '260px' }}
+                    maxLength={254}
                   />
                   <button
                     className="repo-action-button"
                     onClick={handleAllowUser}
                     disabled={isAllowingUser || !allowUserEmail.trim()}
-                    title="Grant push permission to this user"
+                    title="Выдать этому пользователю право отправки"
                   >
-                    {isAllowingUser ? 'Allowing...' : 'Allow User'}
+                    {isAllowingUser ? 'Выдача доступа...' : 'Добавить участника'}
                   </button>
                 </div>
               )}
               <div className="local-repo-selector">
                 <span className="local-repo-label">
-                  Local repo: {localRepoPath || "not chosen"}
+                  Локальный репозиторий: {localRepoPath || 'не выбран'}
                 </span>
                 <button
                   className="repo-action-button"
                   onClick={handleChooseLocalFolder}
                 >
-                  Choose
+                  Выбрать
                 </button>
                 {selectedRepo && !localRepoPath && (
                   <div className="suggestion-message">
-                    No local folder associated with this repository.
+                    Для этого репозитория не указана локальная папка.
                     <button
                       className="repo-action-button small"
                       onClick={handleChooseLocalFolder}
                     >
-                      Create Local Folder
+                      Создать локальную папку
                     </button>
                   </div>
                 )}
@@ -1259,18 +1263,18 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                       className="repo-action-button small"
                       onClick={handleChooseLocalFolder}
                     >
-                      Change Local Folder
+                      Изменить локальную папку
                     </button>
                   </div>
                 )}
-                <div className="git-sync-buttons" style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <div className="git-sync-buttons">
                   <button
                     className="repo-action-button"
                     onClick={handleCloneToLocal}
                     disabled={!selectedRepo || isLoadingRepos}
-                    title="Clone remote repo to local folder"
+                    title="Клонировать удалённый репозиторий в локальную папку"
                   >
-                    📥 Clone to Local
+                    📥 Клонировать локально
                   </button>
 
                   {localRepoPath && (
@@ -1279,44 +1283,37 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                         className="repo-action-button"
                         onClick={handleCommitToLocal}
                         disabled={!summary}
-                        title="Commit staged changes to local repo"
+                        title="Закоммитить подготовленные изменения в локальный репозиторий"
                       >
-                        💾 Commit
+                        💾 Коммит
                       </button>
 
                       <button
                         className="repo-action-button"
                         onClick={handlePullFromServer}
                         disabled={isLoadingRepos}
-                        title="Pull latest from server"
+                        title="Получить последние изменения с сервера"
                       >
-                        ⬇️ Pull
+                        ⬇️ Получить
                       </button>
 
                       <button
                         className="repo-action-button"
                         onClick={handlePushToServer}
                         disabled={isLoadingRepos}
-                        title="Push local changes to server"
+                        title="Отправить локальные изменения на сервер"
                       >
-                        ⬆️ Push
+                        ⬆️ Отправить
                       </button>
                     </>
                   )}
                 </div>
 
                 {gitError && (
-                  <div className="git-error-banner" style={{
-                    background: '#fff3cd',
-                    border: '1px solid #ffc107',
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    marginTop: '10px',
-                    fontSize: '0.9em'
-                  }}>
+                  <div className="git-error-banner">
                     ⚠️ {gitError}
-                    <a href="https://git-scm.com/downloads" target="_blank" rel="noopener noreferrer" style={{ marginLeft: '8px' }}>
-                      Install Git
+                    <a href="https://git-scm.com/downloads" target="_blank" rel="noopener noreferrer">
+                      Установить Git
                     </a>
                   </div>
                 )}
@@ -1345,7 +1342,7 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                   </li>
                 ))
               ) : (
-                <li>No commits found</li>
+                <li>Коммиты не найдены</li>
               )}
             </ul>
           </div>
@@ -1359,9 +1356,8 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                   className="repo-action-button small"
                   type="button"
                   onClick={() => setShowPluginsInDetails(prev => !prev)}
-                  style={{ marginBottom: '10px' }}
                 >
-                  {showPluginsInDetails ? 'Hide plugins' : 'View plugins'}
+                  {showPluginsInDetails ? 'Скрыть плагины' : 'Показать плагины'}
                 </button>
               )}
               {selectedCommit?.formattedDetails ? (
@@ -1372,21 +1368,21 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
               ) : selectedCommit ? (
                 <>
                   <div className="commit-header">
-                    <p>Commit: {selectedCommit.id}</p>
-                    <p>Author: {selectedCommit.author} &lt;{selectedCommit.email}&gt;</p>
-                    <p>Date: {new Date(selectedCommit.date).toLocaleString()}</p>
+                    <p>Коммит: {selectedCommit.id}</p>
+                    <p>Автор: {selectedCommit.author} &lt;{selectedCommit.email}&gt;</p>
+                    <p>Дата: {new Date(selectedCommit.date).toLocaleString()}</p>
                   </div>
 
                   {selectedCommit.message.includes('_summEnd_') ? (
                     <>
-                      <h3>Summary:</h3>
+                      <h3>Кратко:</h3>
                       <p>{selectedCommit.message.split('_summEnd_')[0].trim()}</p>
-                      <h3>Description:</h3>
+                      <h3>Описание:</h3>
                       <p>{selectedCommit.message.split('_summEnd_')[1].trim()}</p>
                     </>
                   ) : (
                     <>
-                      <h3>Summary:</h3>
+                      <h3>Кратко:</h3>
                       <p>{selectedCommit.message.trim()}</p>
                     </>
                   )}

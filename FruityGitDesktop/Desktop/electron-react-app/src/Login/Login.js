@@ -14,7 +14,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
         setError('');
 
         if (!email || !password) {
-            setError('Email and password are required');
+            setError('Требуются email и пароль');
             return;
         }
 
@@ -30,7 +30,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || 'Login failed');
+                throw new Error(data.message || 'Ошибка входа');
             }
 
             localStorage.setItem('accessToken', data.token);      // было data.Token
@@ -49,7 +49,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
             });
         } catch (err) {
             console.error('Login error:', err);
-            setError(err.message || 'Login failed. Please try again.');
+            setError(err.message || 'Ошибка входа. Попробуйте снова.');
         } finally {
             setIsLoading(false);
         }
@@ -60,7 +60,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
         setError('');
 
         if (!name || !email || !password) {
-            setError('Name, email and password are required');
+            setError('Требуются имя, email и пароль');
             return;
         }
 
@@ -81,7 +81,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || 'Registration failed');
+                throw new Error(data.message || 'Ошибка регистрации');
             }
 
             localStorage.setItem('accessToken', data.token);      // было data.Token
@@ -100,7 +100,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
             });
         } catch (err) {
             console.error('Registration error:', err);
-            setError(err.message || 'Registration failed. Please try again.');
+            setError(err.message || 'Ошибка регистрации. Попробуйте снова.');
         } finally {
             setIsLoading(false);
         }
@@ -110,7 +110,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
         <div className="login-modal-overlay">
             <div className="login-window">
                 <div className="login-header">
-                    <h2>{isRegistering ? 'Register' : 'Login'} to FruityGit</h2>
+                    <h2>{isRegistering ? 'Регистрация' : 'Вход'} в FruityGit</h2>
                     <button
                         className="close-button"
                         onClick={() => onClose(null)}
@@ -123,11 +123,11 @@ const LoginWindow = ({ onClose, serverPath }) => {
                     <form onSubmit={isRegistering ? handleRegister : handleLogin}>
                         {isRegistering && (
                             <div className="input-group">
-                                <label>Username:</label>
+                                <label>Имя пользователя:</label>
                                 <input
                                     type="text"
                                     className="login-input"
-                                    placeholder="Enter your username"
+                                    placeholder="Введите имя пользователя"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     required
@@ -140,7 +140,7 @@ const LoginWindow = ({ onClose, serverPath }) => {
                             <input
                                 type="email"
                                 className="login-input"
-                                placeholder="Enter your email"
+                                placeholder="Введите email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -148,11 +148,11 @@ const LoginWindow = ({ onClose, serverPath }) => {
                         </div>
 
                         <div className="input-group">
-                            <label>Password:</label>
+                            <label>Пароль:</label>
                             <input
                                 type="password"
                                 className="login-input"
-                                placeholder="Enter your password"
+                                placeholder="Введите пароль"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -168,8 +168,8 @@ const LoginWindow = ({ onClose, serverPath }) => {
                                 disabled={isLoading}
                             >
                                 {isLoading
-                                    ? (isRegistering ? 'Registering...' : 'Logging in...')
-                                    : (isRegistering ? 'Register' : 'Login')}
+                                    ? (isRegistering ? 'Регистрация...' : 'Вход...')
+                                    : (isRegistering ? 'Зарегистрироваться' : 'Войти')}
                             </button>
                         </div>
 
@@ -181,8 +181,8 @@ const LoginWindow = ({ onClose, serverPath }) => {
                                 disabled={isLoading}
                             >
                                 {isRegistering
-                                    ? 'Already have an account? Login'
-                                    : "Don't have an account? Register"}
+                                    ? 'Уже есть аккаунт? Войти'
+                                    : 'Нет аккаунта? Зарегистрироваться'}
                             </button>
                         </div>
                     </form>

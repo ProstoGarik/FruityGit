@@ -12,11 +12,12 @@
 }
 
 .create-repo-modal {
-  background: white;
-  border-radius: 8px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
   width: 500px;
   max-width: 90%;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 14px 28px rgba(13, 27, 62, 0.15);
   overflow: hidden;
 }
 
@@ -25,21 +26,26 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e9ecef;
+  background: #10161e;
+  border-bottom: 1px solid #30363d;
 }
 
 .create-repo-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
+  color: #e6edf3;
 }
 
 .close-button {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
   cursor: pointer;
-  padding: 0 8px;
+  padding: 0;
 }
 
 .close-button:disabled {
@@ -51,22 +57,35 @@
   padding: 24px;
 }
 
-.form-group {
-  margin-bottom: 20px;
+.create-repo-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.form-group label {
+.form-group {
+  margin-bottom: 0;
+}
+
+.create-repo-modal .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
+  font-weight: 600;
+  color: #e6edf3;
 }
 
-.form-group input[type="text"] {
+.create-repo-modal .form-group input[type="text"] {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  font-size: 1rem;
+  padding: 10px 12px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+.create-repo-modal .form-group input[type="text"]::placeholder {
+  color: #8b949e;
 }
 
 .checkbox-group {
@@ -87,42 +106,47 @@
 
 .checkbox-label {
   font-weight: normal;
+  color: #e6edf3;
 }
 
 .hint {
   font-size: 0.8rem;
-  color: #6c757d;
+  color: #9da7b3;
   margin-top: 4px;
 }
 
 .error-message {
-  color: #dc3545;
+  color: #ff7b72;
   margin-bottom: 16px;
   padding: 8px;
-  background-color: #f8d7da;
-  border-radius: 4px;
+  background-color: #2d1117;
+  border-radius: 8px;
+  border: 1px solid #f85149;
 }
 
 .button-group {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .cancel-button, .create-button {
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 1rem;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
   cursor: pointer;
+  font-weight: 600;
 }
 
 .cancel-button {
-  background-color: #f8f9fa;
-  border: 1px solid #ced4da;
+  background-color: #21262d;
+  border: 1px solid #30363d;
+  color: #e6edf3;
 }
 
 .cancel-button:hover {
-  background-color: #e9ecef;
+  background-color: #2b3138;
 }
 
 .cancel-button:disabled {
@@ -131,16 +155,17 @@
 }
 
 .create-button {
-  background-color: #28a745;
+  background-color: #2d6cdf;
   color: white;
   border: none;
 }
 
 .create-button:hover {
-  background-color: #218838;
+  background-color: #2458b8;
 }
 
 .create-button:disabled {
-  background-color: #6c757d;
+  background-color: #2d333b;
+  color: #7d8590;
   cursor: not-allowed;
 }

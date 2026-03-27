@@ -27,17 +27,17 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
     setError('');
 
     if (!user || !user.name) {
-      setError('User information is required');
+      setError('Требуется информация о пользователе');
       return;
     }
 
     if (!repoName.trim()) {
-      setError('Repository name is required');
+      setError('Требуется имя репозитория');
       return;
     }
 
     if (!/^[a-zA-Z0-9_-]{1,100}$/.test(repoName)) {
-      setError('Repository name must be 1-100 characters (letters, numbers, hyphens, underscores)');
+      setError('Имя репозитория: 1-100 символов (буквы, цифры, дефисы, подчёркивания)');
       return;
     }
 
@@ -56,7 +56,7 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to create repository');
+        throw new Error(errorData.message || 'Не удалось создать репозиторий');
       }
 
       const newRepo = await response.json();
@@ -84,7 +84,7 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
     <div className="create-repo-modal-overlay">
       <div className="create-repo-modal">
         <div className="create-repo-header">
-          <h2>Create New Repository</h2>
+          <h2>Создать новый репозиторий</h2>
           <button
             className="close-button"
             onClick={onClose}
@@ -97,7 +97,7 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
         <div className="create-repo-content">
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label htmlFor="repo-name">Repository Name:</label>
+              <label htmlFor="repo-name">Имя репозитория:</label>
               <input
                 id="repo-name"
                 type="text"
@@ -106,13 +106,13 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
                   setRepoName(e.target.value);
                   setError('');
                 }}
-                placeholder="my-repository"
+                placeholder="мой-репозиторий"
                 required
                 disabled={isCreating}
                 maxLength={100}
               />
               <div className="hint">
-                1-100 characters (letters, numbers, hyphens, underscores)
+                1-100 символов (буквы, цифры, дефисы, подчёркивания)
               </div>
             </div>
 
@@ -124,9 +124,9 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
                   onChange={() => setIsPrivate(!isPrivate)}
                   disabled={isCreating}
                 />
-                <span className="checkbox-label">Private Repository</span>
+                <span className="checkbox-label">Приватный репозиторий</span>
                 <div className="hint">
-                  Only you will be able to see and access this repository
+                  Этот репозиторий будет виден и доступен только вам
                 </div>
               </label>
             </div>
@@ -140,14 +140,14 @@ function CreateRepo({ onClose, onCreate, user, serverPath }) {
                 onClick={onClose}
                 disabled={isCreating}
               >
-                Cancel
+                Отмена
               </button>
               <button
                 type="submit"
                 className="create-button"
                 disabled={isCreating || !repoName.trim()}
               >
-                {isCreating ? 'Creating...' : 'Create Repository'}
+                {isCreating ? 'Создание...' : 'Создать репозиторий'}
               </button>
             </div>
           </form>

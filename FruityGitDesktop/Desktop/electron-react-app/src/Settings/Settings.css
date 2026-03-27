@@ -12,11 +12,12 @@
 }
 
 .settings-window {
-  background: #fff;
+  background: #161b22;
+  border: 1px solid #30363d;
   width: 520px;
   max-width: 94vw;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 14px 28px rgba(13, 27, 62, 0.15);
   overflow: hidden;
 }
 
@@ -25,26 +26,32 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #30363d;
+  background: #10161e;
 }
 
 .settings-content {
   padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .settings-input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.25);
+  border: 1px solid #30363d;
   border-radius: 8px;
   font-size: 14px;
+  background: #0d1117;
+  color: #e6edf3;
 }
 
 .settings-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 /* Reuse button classes used by other modals */
@@ -58,17 +65,21 @@
 }
 
 .cancel-button {
-  background: #e6e6e6;
+  background: #21262d;
+  color: #e6edf3;
+  border: 1px solid #30363d;
 }
 
 .create-button {
-  background: #0b5ed7;
+  background: #2d6cdf;
   color: #fff;
 }
 
 .close-button {
-  background: #efefef;
-  font-size: 20px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  font-size: 18px;
   line-height: 1;
   width: 34px;
   height: 34px;
@@ -79,17 +90,20 @@
 
 .error-message {
   margin-top: 10px;
-  color: #b00020;
+  color: #ff7b72;
 }
 
 .diagnostics-section {
-  margin-top: 14px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  margin-top: 0;
+  border-top: 1px solid #30363d;
   padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .diagnostics-report {
-  background: #0b1020;
+  background: #0d1117;
   color: #e6e6e6;
   border-radius: 8px;
   padding: 12px;
@@ -104,5 +118,6 @@
   display: block;
   font-weight: 600;
   margin-bottom: 8px;
+  color: #e6edf3;
 }
 

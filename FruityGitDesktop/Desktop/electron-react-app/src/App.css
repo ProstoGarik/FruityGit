@@ -1,47 +1,63 @@
 /* src/App.css */
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-muted: #10161e;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #9da7b3;
+  --accent: #2f81f7;
+  --accent-hover: #1f6feb;
+  --success: #238636;
+  --danger: #da3633;
+  --shadow: 0 12px 24px rgba(0, 0, 0, 0.38);
+}
+
 .app-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: white;
+  background: radial-gradient(circle at top left, #131a24 0%, var(--bg) 52%);
+  color: var(--text);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .top-bar {
   display: flex;
-  justify-content: flex-end;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-bottom: 1px solid #ddd;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: rgba(13, 17, 23, 0.92);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(3px);
 }
 
-.login-button {
-  padding: 5px 15px;
-  background-color: #4a86e8;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
+.app-brand {
+  display: flex;
+  flex-direction: column;
 }
 
-.login-button:hover {
-  background-color: #3a76d8;
+.app-brand-title {
+  font-size: 17px;
+  font-weight: 700;
 }
 
-.settings-button {
-  margin-left: 10px;
-  padding: 5px 15px;
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
+.app-brand-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
-.settings-button:hover {
-  background-color: #5a6268;
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.user-label {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .main-grid {
@@ -49,102 +65,170 @@
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto;
   flex: 1;
-  gap: 10px;
-  padding: 10px;
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
 }
 
-.left-column {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
-  gap: 10px;
-}
-
+.left-column,
 .right-column {
   display: grid;
   grid-template-rows: 1fr 1fr;
-  gap: 10px;
+  gap: 12px;
+  min-height: 0;
 }
 
 .section {
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 16px;
   display: flex;
   flex-direction: column;
+  gap: 12px;
+  min-height: 0;
 }
 
 .section-title {
-  text-align: center;
+  text-align: left;
   margin-top: 0;
-  margin-bottom: 15px;
-  color: #333;
-}
-
-.action-button {
-  padding: 10px 20px;
-  background-color: #5b9bd5;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin: 10px auto;
-  width: 300px;
-  font-weight: bold;
+  margin-bottom: 14px;
+  color: var(--text);
+  font-size: 17px;
 }
 
 .input-group {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 0;
+  gap: 10px;
 }
 
 .input-label {
-  font-size: 15px;
-  margin-right: 10px;
-  width: 60px;
+  font-size: 14px;
+  color: var(--text-muted);
+  width: 72px;
+  flex: 0 0 72px;
+}
+
+.text-input,
+.repo-input,
+.description-input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  background: #0d1117;
+}
+
+.text-input,
+.repo-input {
+  padding: 10px 12px;
 }
 
 .text-input {
-  padding: 5px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
   flex: 1;
 }
 
+.repo-input {
+  width: 100%;
+  max-width: 280px;
+}
+
 .description-input {
-  height: 100px;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  margin-top: 10px;
+  height: 110px;
+  padding: 10px 12px;
+  margin-top: 0;
   resize: vertical;
+}
+
+.text-input:focus,
+.repo-input:focus,
+.description-input:focus {
+  outline: none;
+  border-color: #2f81f7;
+  box-shadow: 0 0 0 3px rgba(47, 129, 247, 0.24);
+}
+
+.action-button,
+.send-button,
+.repo-action-button,
+.login-button,
+.settings-button,
+.logout-button {
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.18s ease, transform 0.12s ease;
+}
+
+.action-button,
+.repo-action-button,
+.login-button,
+.settings-button {
+  padding: 9px 14px;
+}
+
+.action-button,
+.repo-action-button,
+.login-button {
+  background-color: var(--accent);
+  color: #fff;
+}
+
+.action-button:hover,
+.repo-action-button:hover,
+.login-button:hover {
+  background-color: var(--accent-hover);
 }
 
 .send-button {
   align-self: flex-end;
-  padding: 10px 20px;
-  background-color: #70ad47;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  padding: 10px 16px;
+  background-color: var(--success);
+  color: #fff;
   margin-top: auto;
-  width: 100px;
+  min-width: 108px;
 }
 
-.repo-input {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  width: 200px;
+.send-button:hover {
+  background-color: #277f50;
+}
+
+.settings-button {
+  background-color: #30363d;
+  color: #fff;
+}
+
+.settings-button:hover {
+  background-color: #3f464f;
+}
+
+.logout-button {
+  padding: 8px 12px;
+  background-color: var(--danger);
+  color: #fff;
+}
+
+.logout-button:hover {
+  background-color: #b6313f;
+}
+
+.repo-list-container,
+.history-section,
+.details-section,
+.commit-details {
+  min-height: 0;
 }
 
 .repo-list-container {
-  margin-top: 20px;
-  height: 120px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  margin-top: 12px;
+  height: 130px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
   overflow-y: auto;
+  background: var(--surface-muted);
 }
 
 .repo-list {
@@ -154,64 +238,22 @@
 }
 
 .repo-list li {
-  padding: 8px 10px;
-  border-bottom: 1px solid #eee;
+  padding: 9px 12px;
+  border-bottom: 1px solid #262c34;
   cursor: pointer;
 }
 
 .repo-list li:hover {
-  background-color: #f5f5f5;
-}
-
-.history-section {
-  overflow-y: auto;
-}
-
-.commit-list {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-}
-
-.commit-item {
-  padding: 10px;
-  border-bottom: 1px solid #eee;
-  cursor: pointer;
-}
-
-.commit-item:hover {
-  background-color: #f9f9f9;
-}
-
-.commit-message {
-  font-weight: bold;
-}
-
-.commit-date {
-  font-size: 0.85em;
-  color: #666;
-}
-
-.details-section {
-  overflow-y: auto;
-}
-
-.commit-details {
-  padding: 10px;
-  background-color: #f9f9f9;
-  border-radius: 4px;
-  font-family: 'Consolas', monospace;
-  white-space: pre-wrap;
-  flex: 1;
-  overflow-y: auto;
+  background-color: #1d2430;
 }
 
 .selected-repo {
-  background-color: #e0e0e0;
-  font-weight: bold;
+  background-color: #1f2937;
+  font-weight: 700;
 }
+
 .toggle-container {
-  margin-bottom: 15px;
+  margin-bottom: 0;
   display: flex;
   align-items: center;
 }
@@ -221,15 +263,15 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #333;
+  color: var(--text-muted);
 }
 
 .toggle-switch {
   position: relative;
-  width: 40px;
-  height: 20px;
+  width: 42px;
+  height: 22px;
   appearance: none;
-  background: #ccc;
+  background: #30363d;
   border-radius: 20px;
   outline: none;
   cursor: pointer;
@@ -237,16 +279,16 @@
 }
 
 .toggle-switch:checked {
-  background: #4CAF50;
+  background: var(--success);
 }
 
 .toggle-switch::before {
   content: '';
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: white;
+  background: #e6edf3;
   top: 2px;
   left: 2px;
   transition: transform 0.3s;
@@ -259,67 +301,149 @@
 .repo-buttons {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 0;
+}
+
+.repo-action-button:disabled,
+.action-button:disabled,
+.send-button:disabled,
+.login-button:disabled,
+.settings-button:disabled,
+.logout-button:disabled {
+  background-color: #2d333b;
+  color: #7d8590;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.repo-action-button.small {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.allow-user-row {
+  margin-top: 2px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.local-repo-selector {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.local-repo-label {
+  display: inline-block;
+  margin-right: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.local-repo-actions {
   margin-top: 10px;
 }
 
-.repo-action-button {
-  padding: 8px 12px;
-  background-color: #4a6fa5;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.repo-action-button:hover {
-  background-color: #3a5a8f;
-}
-
-.repo-action-button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-.top-bar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-bottom: 1px solid #ddd;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.logout-button {
-  padding: 5px 10px;
-  background-color: #f44336;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.logout-button:hover {
-  background-color: #d32f2f;
-}
-
 .suggestion-message {
-  margin-top: 8px;
-  font-size: 0.9em;
-  color: #666;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
+
 .suggestion-message button {
   margin-left: 8px;
 }
-.local-repo-actions {
-  margin-top: 8px;
+
+.git-sync-buttons {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
-.repo-action-button.small {
-  padding: 4px 8px;
-  font-size: 0.85em;
+
+.commit-details > .repo-action-button.small {
+  margin-bottom: 10px;
+}
+
+.history-section,
+.details-section {
+  overflow-y: auto;
+}
+
+.commit-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.commit-item {
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  margin-bottom: 7px;
+  cursor: pointer;
+  background: var(--surface-muted);
+}
+
+.commit-item:hover {
+  border-color: #2f81f7;
+  background-color: #1b2430;
+}
+
+.commit-message {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.commit-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.commit-details {
+  padding: 12px;
+  background-color: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  white-space: pre-wrap;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.commit-details pre {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.git-error-banner {
+  margin-top: 12px;
+  background: #2d2100;
+  border: 1px solid #7d4e00;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: #f2cc60;
+}
+
+.git-error-banner a {
+  margin-left: 8px;
+  color: #f2cc60;
+  font-weight: 600;
+}
+
+@media (max-width: 1200px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .left-column,
+  .right-column {
+    grid-template-rows: minmax(260px, auto) minmax(260px, auto);
+  }
 }
