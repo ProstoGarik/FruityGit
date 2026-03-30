@@ -5,6 +5,7 @@ import './App.css';
 import LoginWindow from './Login/Login';
 import { GitService } from './Git/GitService';
 import CreateRepo from './Repo/CreateRepo';
+import RepoPicker from './Repo/RepoPicker';
 import SettingsWindow from './Settings/Settings';
 import {
   getAccessToken,
@@ -37,6 +38,10 @@ function App() {
   const [isAllowingUser, setIsAllowingUser] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPluginsInDetails, setShowPluginsInDetails] = useState(false);
+  const [showRepoPicker, setShowRepoPicker] = useState(false);
+  const [isFlpProcessing, setIsFlpProcessing] = useState(false);
+  const [flpProcessingMessage, setFlpProcessingMessage] = useState('');
+
 
   const normalizeCloneUrl = (cloneUrl) => {
     if (!cloneUrl) return cloneUrl;
@@ -210,6 +215,13 @@ function App() {
       const filePath = await window.electronAPI.openFlpDialog();
       if (!filePath) return;
 
+      setIsFlpProcessing(true);
+      setFlpProcessingMessage(
+        processWithPython
+          ? 'Обработка FLP… Это может занять некоторое время. Пожалуйста, подождите.'
+          : 'Копирование файла в репозиторий…'
+      );
+
       const stageFileInLocalRepo = async (sourcePath, localPath) => {
         const fileContent = await window.electronAPI.readFile(sourcePath);
         if (!fileContent) {
@@ -232,6 +244,7 @@ function App() {
       if (processWithPython) {
         // Call IPC to run Python in main
         const zipPath = await window.electronAPI.runPythonProcessor(filePath);
+        setFlpProcessingMessage('Распаковка архива и подготовка файлов в репозитории…');
         const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
         if (!localPath) {
           alert('Выберите папку для клонирования репозитория');
@@ -243,11 +256,25 @@ function App() {
         // Use a stable folder per FLP to avoid re-adding the whole tree each upload.
         // This allows git to show only real added/deleted/modified files.
         const extractTo = window.electronAPI.pathJoin(localPath, 'uploads', zipBaseName);
+        const uploadsRoot = window.electronAPI.pathJoin(localPath, 'uploads');
+        const markerFileName = '.fruitygit-extracted.marker';
+        const markerPath = window.electronAPI.pathJoin(extractTo, markerFileName);
 
-        // Replace existing extracted project contents (if any).
-        await window.electronAPI.rmrf(extractTo);
+        // Replace existing extracted project contents (if any), but only if the folder
+        // is one we previously created. This prevents accidental deletion of
+        // user folders if paths are misconfigured.
+        const markerExists = await window.electronAPI.fileExists(markerPath);
+        if (markerExists) {
+          const delResult = await window.electronAPI.rmrfUnder(uploadsRoot, extractTo);
+          if (!delResult?.success) {
+            throw new Error(delResult?.error || 'Не удалось удалить старые распакованные файлы');
+          }
+        }
+
         await window.electronAPI.mkdir(extractTo, { recursive: true });
         await window.electronAPI.extractZip(zipPath, extractTo);
+        // Write marker after successful extraction.
+        await window.electronAPI.writeFile(markerPath, `${new Date().toISOString()}\n`);
 
         const addResult = await window.electronAPI.git.add(localPath, extractTo);
         if (!addResult.success) {
@@ -258,6 +285,7 @@ function App() {
         alert('Архив распакован и добавлен в локальный репозиторий. Нажмите «Коммит», чтобы создать коммит.');
         return extractTo;
       } else {
+        setFlpProcessingMessage('Подготовка локальной копии репозитория…');
         const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
         if (!localPath) {
           alert('Выберите папку для клонирования репозитория');
@@ -271,6 +299,9 @@ function App() {
     } catch (error) {
       console.error('Error processing FLP file:', error);
       alert(`Ошибка: ${error.message}`);
+    } finally {
+      setIsFlpProcessing(false);
+      setFlpProcessingMessage('');
     }
   };
 
@@ -408,11 +439,31 @@ function App() {
       const publicPayload = await publicResponse.json();
       const publicRepos = Array.isArray(publicPayload) ? publicPayload : (publicPayload.data || []);
 
-      const mergedRefs = [...ownRepos, ...publicRepos]
-        .map(r => r.full_name || `${r.owner?.login || user.name}/${r.name}`)
-        .filter(Boolean);
+      const toRepoItem = (r) => {
+        const fullName = r?.full_name || (r?.owner?.login && r?.name ? `${r.owner.login}/${r.name}` : null);
+        const parsed = parseRepoRef(fullName || r?.name, user?.name);
+        return {
+          fullName: parsed.fullName || fullName || r?.name || '',
+          name: r?.name || parsed.name || '',
+          owner: r?.owner?.login || parsed.owner || '',
+          description: r?.description || ''
+        };
+      };
 
-      setRepos([...new Set(mergedRefs)]);
+      const merged = [...(Array.isArray(ownRepos) ? ownRepos : []), ...(Array.isArray(publicRepos) ? publicRepos : [])]
+        .map(toRepoItem)
+        .filter(r => r.fullName);
+
+      const uniqMap = new Map();
+      for (const r of merged) {
+        const key = String(r.fullName).toLowerCase();
+        if (!uniqMap.has(key)) uniqMap.set(key, r);
+      }
+
+      const uniq = Array.from(uniqMap.values())
+        .sort((a, b) => String(a.fullName).localeCompare(String(b.fullName), 'ru'));
+
+      setRepos(uniq);
     } catch (error) {
       console.error('Refresh repo error:', error);
       alert(error.message);
@@ -420,6 +471,17 @@ function App() {
       setIsLoadingRepos(false);
     }
   }, [user, serverPath]);
+
+  const handleSelectRepo = async (repoFullName) => {
+    if (!repoFullName) return;
+    setShowRepoPicker(false);
+    setSelectedRepo(repoFullName);
+    if (user) {
+      const { name, fullName } = parseRepoRef(repoFullName, user?.name);
+      setLocalRepoPath(repoPathMap[fullName] || repoPathMap[name] || null);
+    }
+    await handleShowRepo(repoFullName);
+  };
 
   const runFullDiagnostics = async () => {
     if (isRunningDiagnostics) return 'Диагностика уже запущена.';
@@ -1159,52 +1221,47 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
           </div>
 
           {/* Repository Section */}
-          <div className="section">
+          <div className="section repo-section">
+            <h2 className="section-title">Репозитории</h2>
+            <div className="repo-picker-row-inline">
+              <div className="repo-picked">
+                <div className="repo-picked-label">Выбранный репозиторий</div>
+                <div className="repo-picked-value">{selectedRepo || 'не выбран'}</div>
+              </div>
+              <div className="repo-picked-actions">
+                <button
+                  className="repo-action-button"
+                  type="button"
+                  onClick={() => setShowRepoPicker(true)}
+                  disabled={!user || isLoadingRepos}
+                  title={!user ? 'Сначала выполните вход' : 'Открыть список репозиториев'}
+                >
+                  Выбрать репозиторий
+                </button>
+              </div>
+            </div>
+
             <div className="input-group">
-              <label className="input-label">Название:</label>
+              <label className="input-label">Новое:</label>
               <input
                 type="text"
                 className="repo-input"
                 value={repoName}
                 onChange={(e) => setRepoName(e.target.value)}
-                placeholder="Название репозитория"
+                placeholder="Имя для нового репозитория"
               />
             </div>
 
             <button
               className="repo-action-button"
               onClick={() => setShowCreateRepo(true)}
+              disabled={!user}
+              title={!user ? 'Сначала выполните вход' : 'Создать новый репозиторий'}
             >
               Создать репозиторий
             </button>
 
-            <div className="repo-list-container">
-              <ul className="repo-list">
-                {repos && repos.length > 0 ? (
-                  repos.map((repo, index) => (
-                    <li
-                      key={index}
-                      className={repo === selectedRepo ? 'selected-repo' : ''}
-                      onClick={() => {
-                        setSelectedRepo(repo);
-                        handleShowRepo(repo);
-                        const { name, fullName } = parseRepoRef(repo, user?.name);
-                        setLocalRepoPath(repoPathMap[fullName] || repoPathMap[name] || null);
-                      }}
-                    >
-                      {repo}
-                    </li>
-                  ))
-                ) : (
-                  <li>Репозитории не найдены</li>
-                )}
-              </ul>
-            </div>
-
             <div className="repo-buttons">
-              <button className="repo-action-button" onClick={handleRefreshRepo} disabled={isLoadingRepos}>
-                {isLoadingRepos ? 'Загрузка...' : 'Обновить'}
-              </button>
               <button
                 className="repo-action-button"
                 onClick={handleDownloadRepo}
@@ -1420,6 +1477,27 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
             }}
             onRunDiagnostics={() => runFullDiagnostics()}
           />
+        )}
+
+        {showRepoPicker && (
+          <RepoPicker
+            repos={repos}
+            selectedFullName={selectedRepo}
+            isLoading={isLoadingRepos}
+            onClose={() => setShowRepoPicker(false)}
+            onSelect={(fullName) => handleSelectRepo(fullName)}
+            onUpdate={handleRefreshRepo}
+          />
+        )}
+
+        {isFlpProcessing && (
+          <div className="flp-processing-overlay" role="status" aria-live="polite">
+            <div className="flp-processing-card">
+              <div className="flp-processing-spinner" aria-hidden="true" />
+              <div className="flp-processing-title">Обработка файла</div>
+              <div className="flp-processing-text">{flpProcessingMessage}</div>
+            </div>
+          </div>
         )}
       </div>
     </div>

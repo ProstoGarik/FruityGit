@@ -554,3 +554,26 @@ ipcMain.handle('rmrf', (event, targetPath) => {
     return { success: false, error: error.message };
   }
 });
+
+// Safer variant: only allow deleting within a base folder.
+ipcMain.handle('rmrf-under', (event, { basePath, targetPath }) => {
+  try {
+    if (!basePath) return { success: false, error: 'basePath is required' };
+    if (!targetPath) return { success: false, error: 'targetPath is required' };
+
+    const resolvedBase = path.resolve(String(basePath));
+    const resolvedTarget = path.resolve(String(targetPath));
+
+    // Ensure target is inside base (or equal to base).
+    const rel = path.relative(resolvedBase, resolvedTarget);
+    const isInside = rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+    if (!isInside) {
+      return { success: false, error: `Refusing to delete outside basePath. basePath=${resolvedBase} targetPath=${resolvedTarget}` };
+    }
+
+    fs.rmSync(resolvedTarget, { recursive: true, force: true });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

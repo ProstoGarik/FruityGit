@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
   dirIsEmpty: (dirPath) => ipcRenderer.invoke('dir-is-empty', dirPath),
   rmrf: (targetPath) => ipcRenderer.invoke('rmrf', targetPath),
+  rmrfUnder: (basePath, targetPath) => ipcRenderer.invoke('rmrf-under', { basePath, targetPath }),
 
 
   pathDirname: (p) => path.dirname(p),
