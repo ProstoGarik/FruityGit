@@ -4,9 +4,48 @@ import json
 import traceback
 import tempfile
 import os
+import enum
 from pathlib import Path
 
 import pyflp
+
+
+def _patch_pyflp_eventenum_for_py312_plus() -> None:
+    """
+    pyflp defines a base EventEnum with no members and relies on _missing_.
+    Python 3.12+ raises TypeError when calling an Enum with no members, before
+    _missing_ can run, which breaks pyflp.parse().
+
+    We do NOT modify the library source; instead we monkeypatch EnumMeta.__call__
+    at runtime for this specific class only.
+    """
+
+    original_call = enum.EnumMeta.__call__
+
+    # Avoid double-patching in long-lived processes.
+    if getattr(enum.EnumMeta.__call__, "_fruitygit_pyflp_patch", False):
+        return
+
+    def patched_call(cls, value, *args, **kwargs):  # type: ignore[no-redef]
+        try:
+            return original_call(cls, value, *args, **kwargs)
+        except TypeError as exc:
+            # Only intercept the exact pyflp EventEnum "no members" failure.
+            if (
+                cls.__name__ == "EventEnum"
+                and getattr(cls, "__module__", "").endswith("pyflp._events")
+                and not getattr(cls, "__members__", {})
+                and "has no members" in str(exc)
+            ):
+                missing = getattr(cls, "_missing_", None)
+                if callable(missing):
+                    alt = missing(value)
+                    if alt is not None:
+                        return alt
+            raise
+
+    patched_call._fruitygit_pyflp_patch = True  # type: ignore[attr-defined]
+    enum.EnumMeta.__call__ = patched_call  # type: ignore[assignment]
 
 
 def _clean_name(*values):
@@ -79,6 +118,16 @@ def _project_tempo_safe(project):
 
 def _build_metadata(project, flp_name: str) -> dict:
     """Best-effort metadata; never raises (zip creation must still succeed)."""
+    samples = []
+    try:
+        for sampler in project.channels.samplers:
+            ref = getattr(sampler, "sample_path", None)
+            if ref is None:
+                continue
+            samples.append(str(ref))
+    except Exception:
+        samples = []
+
     metadata = {
         "schemaVersion": 1,
         "flpFile": flp_name,
@@ -87,6 +136,7 @@ def _build_metadata(project, flp_name: str) -> dict:
             "generators": _extract_generators(project),
             "effects": _extract_effects(project),
         },
+        "samples": samples,
     }
     return metadata
 
@@ -128,6 +178,10 @@ def _resolve_sample_path(sample_ref, flp_path: Path) -> Path | None:
 
 
 def process_flp(flp_path_str: str) -> Path:
+    # Make pyflp compatible with Python 3.12+ enum behavior.
+    if sys.version_info >= (3, 12):
+        _patch_pyflp_eventenum_for_py312_plus()
+
     flp_path = Path(flp_path_str).expanduser().resolve()
     if not flp_path.exists():
         raise FileNotFoundError(f"FLP file not found: {flp_path}")
@@ -165,14 +219,22 @@ def process_flp(flp_path_str: str) -> Path:
         try:
             if project is not None:
                 for sampler in project.channels.samplers:
-                    if sampler.sample_path is None:
+                    ref = getattr(sampler, "sample_path", None)
+                    if ref is None:
                         continue
-                    sample_path = _resolve_sample_path(sampler.sample_path, flp_path)
+                    sample_path = _resolve_sample_path(ref, flp_path)
                     if sample_path is not None and sample_path.exists():
                         archive.write(sample_path, arcname=sample_path.name)
                     else:
+                        # Print debug candidates to help diagnose why sample isn't included.
+                        raw = str(ref)
+                        cand1 = Path(os.path.expandvars(raw))
+                        cand2 = flp_path.parent / cand1
+                        cand3 = Path.cwd() / cand1
                         print(
-                            f"Warning: Sample file not found - ref={sampler.sample_path!r}",
+                            "Warning: Sample file not found. "
+                            f"ref={raw!r} "
+                            f"candidates={[str(cand1), str(cand2), str(cand3)]}",
                             file=sys.stderr,
                         )
         except Exception:

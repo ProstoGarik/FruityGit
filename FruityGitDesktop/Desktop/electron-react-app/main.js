@@ -94,8 +94,12 @@ ipcMain.handle('run-python-processor', async (event, filePath) => {
       return reject(new Error(`FLP processor not found at: ${pythonScriptPath}`));
     }
 
-    const { spawn } = require('child_process');
+    const { spawn, spawnSync } = require('child_process');
     const interpreterCandidates = [
+      // pyflp currently fails under Python 3.13 (EventEnum empty Enum behavior),
+      // so prefer Python 3.12 when available.
+      { cmd: 'py', args: ['-3.12'] },
+      { cmd: 'python3.12', args: [] },
       { cmd: 'py', args: ['-3'] },
       { cmd: 'python', args: [] },
       { cmd: 'python3', args: [] }
@@ -113,6 +117,52 @@ ipcMain.handle('run-python-processor', async (event, filePath) => {
     const selectedInterpreter = interpreterCandidates.find(canRunInterpreter);
     if (!selectedInterpreter) {
       return reject(new Error('Python interpreter was not found. Install Python 3 and make sure `py` or `python` is in PATH.'));
+    }
+
+    // Verify required python dependencies are available for pyflp.
+    // NOTE: We intentionally do NOT auto-install dependencies.
+    const verifyPythonDeps = () => {
+      const requiredImports = ['construct', 'construct_typed', 'sortedcontainers', 'typing_extensions'];
+      const missing = [];
+      for (const mod of requiredImports) {
+        const probe = spawnSync(
+          selectedInterpreter.cmd,
+          [...selectedInterpreter.args, '-c', `import ${mod}`],
+          { encoding: 'utf8' }
+        );
+        if (probe.status !== 0) missing.push(mod);
+      }
+      if (missing.length > 0) {
+        // construct_typed module is provided by the PyPI package "construct-typing"
+        // (not "construct_typed").
+        const msg =
+          `Missing Python dependencies for FLP processing: ${missing.join(', ')}\n` +
+          `Install them and retry. Example:\n` +
+          `  py -3.12 -m pip install -U construct construct-typing sortedcontainers typing_extensions\n`;
+        throw new Error(msg);
+      }
+    };
+
+    // Detect Python version early for better error messages.
+    try {
+      const versionProbe = spawn(selectedInterpreter.cmd, [...selectedInterpreter.args, '-c', 'import sys; print(sys.version_info[0], sys.version_info[1])']);
+      let versionOut = '';
+      versionProbe.stdout.on('data', (d) => { versionOut += d.toString(); });
+      versionProbe.on('close', () => {
+        const parts = versionOut.trim().split(/\s+/).map(x => parseInt(x, 10)).filter(n => Number.isFinite(n));
+        const major = parts[0], minor = parts[1];
+        if (major === 3 && minor >= 13) {
+          console.warn('Selected Python is 3.13+; pyflp parse may fail. Consider installing Python 3.12.');
+        }
+      });
+    } catch (e) {
+      // ignore probe failures
+    }
+
+    try {
+      verifyPythonDeps();
+    } catch (e) {
+      return reject(e);
     }
 
     const pythonProcess = spawn(
