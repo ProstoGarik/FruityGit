@@ -3,6 +3,7 @@ import zipfile
 import json
 import traceback
 import tempfile
+import os
 from pathlib import Path
 
 import pyflp
@@ -90,6 +91,42 @@ def _build_metadata(project, flp_name: str) -> dict:
     return metadata
 
 
+def _resolve_sample_path(sample_ref, flp_path: Path) -> Path | None:
+    """Resolve FL sample references to an existing filesystem path."""
+    if sample_ref is None:
+        return None
+
+    raw = str(sample_ref).strip().strip("\"'")
+    if not raw:
+        return None
+
+    # Normalize env vars and separators early.
+    expanded = raw.replace("\\", "/")
+    expanded = str(Path(expanded).expanduser())
+    expanded = str(Path(expanded))
+    expanded = str(Path(os.path.expandvars(expanded)))
+
+    candidate = Path(expanded)
+    candidates = []
+
+    # 1) As-is (absolute or cwd-relative)
+    candidates.append(candidate)
+    # 2) Relative to FLP location (common for project-local assets)
+    candidates.append((flp_path.parent / candidate))
+    # 3) Relative to current process directory (fallback)
+    candidates.append(Path.cwd() / candidate)
+
+    for p in candidates:
+        try:
+            resolved = p.expanduser().resolve(strict=False)
+        except Exception:
+            continue
+        if resolved.exists() and resolved.is_file():
+            return resolved
+
+    return None
+
+
 def process_flp(flp_path_str: str) -> Path:
     flp_path = Path(flp_path_str).expanduser().resolve()
     if not flp_path.exists():
@@ -130,11 +167,14 @@ def process_flp(flp_path_str: str) -> Path:
                 for sampler in project.channels.samplers:
                     if sampler.sample_path is None:
                         continue
-                    sample_path = Path(sampler.sample_path)
-                    if sample_path.exists():
+                    sample_path = _resolve_sample_path(sampler.sample_path, flp_path)
+                    if sample_path is not None and sample_path.exists():
                         archive.write(sample_path, arcname=sample_path.name)
                     else:
-                        print(f"Warning: Sample file not found - {sample_path}", file=sys.stderr)
+                        print(
+                            f"Warning: Sample file not found - ref={sampler.sample_path!r}",
+                            file=sys.stderr,
+                        )
         except Exception:
             # If sampler iteration fails due to a pyflp edge case, keep zip creation successful.
             print("Warning: Could not extract samples from parsed project.", file=sys.stderr)

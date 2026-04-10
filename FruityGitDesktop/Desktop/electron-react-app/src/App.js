@@ -41,6 +41,7 @@ function App() {
   const [showRepoPicker, setShowRepoPicker] = useState(false);
   const [isFlpProcessing, setIsFlpProcessing] = useState(false);
   const [flpProcessingMessage, setFlpProcessingMessage] = useState('');
+  const [localAheadCount, setLocalAheadCount] = useState(0);
 
 
   const normalizeCloneUrl = (cloneUrl) => {
@@ -310,33 +311,22 @@ function App() {
     handleRefreshRepo();
   };
 
-  const handleSend = async () => {
-    try {
-      if (!selectedRepo) {
-        alert('Сначала выберите репозиторий');
-        return;
-      }
-
-      if (!user) {
-        alert('Сначала выполните вход');
-        return;
-      }
-
-      if (!localRepoPath) {
-        alert('Выберите локальный репозиторий');
-          return;
-        }
-
-      await GitService.pushToServer(localRepoPath, 'main');
-
-      alert('Изменения успешно отправлены в удалённый репозиторий!');
-      await handleShowRepo(selectedRepo);
-    } catch (error) {
-      console.error('Send error:', error);
-      alert(`Ошибка: ${error.message}`);
-      throw error;
+  const refreshLocalAheadCount = useCallback(async (repoPath) => {
+    const target = repoPath || localRepoPath;
+    if (!target) {
+      setLocalAheadCount(0);
+      return;
     }
-  };
+    try {
+      const statusResult = await window.electronAPI.git.status(target);
+      if (statusResult?.success) {
+        const ahead = Number(statusResult.status?.ahead || 0);
+        setLocalAheadCount(Number.isFinite(ahead) ? ahead : 0);
+      }
+    } catch {
+      // best-effort
+    }
+  }, [localRepoPath]);
 
   const clearAppState = () => {
     setRepoName('');
@@ -961,6 +951,7 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
       alert(`Репозиторий клонирован в: ${localPath}`);
       const localCommits = await GitService.getLocalHistory(localPath);
       setCommits(localCommits);
+      await refreshLocalAheadCount(localPath);
     } catch (error) {
       console.error('Clone error:', error);
       alert(`Не удалось клонировать: ${error.message}`);
@@ -994,6 +985,7 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
       // Refresh local history view
       const localCommits = await GitService.getLocalHistory(localRepoPath);
       setCommits(localCommits);
+      await refreshLocalAheadCount(localRepoPath);
 
       // Clear form
       setSummary('');
@@ -1031,6 +1023,7 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
       if (selectedRepo) {
         await handleShowRepo(selectedRepo);
       }
+      await refreshLocalAheadCount(localRepoPath);
     } catch (error) {
       console.error('Push error:', error);
       if (error?.message?.includes('User permission denied for writing')) {
@@ -1059,6 +1052,7 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
       // Refresh local history
       const localCommits = await GitService.getLocalHistory(localRepoPath);
       setCommits(localCommits);
+      await refreshLocalAheadCount(localRepoPath);
     } catch (error) {
       console.error('Pull error:', error);
       alert(`Ошибка получения: ${error.message}`);
@@ -1131,6 +1125,14 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
   useEffect(() => {
     localStorage.setItem('repoPathMap', JSON.stringify(repoPathMap));
   }, [repoPathMap]);
+
+  useEffect(() => {
+    if (!localRepoPath) {
+      setLocalAheadCount(0);
+      return;
+    }
+    refreshLocalAheadCount(localRepoPath);
+  }, [localRepoPath, refreshLocalAheadCount]);
 
   return (
     <div className="app-container">
@@ -1214,10 +1216,6 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Полное описание"
             />
-
-            <button className="send-button" onClick={handleSend}>
-              Отправить
-            </button>
           </div>
 
           {/* Repository Section */}
@@ -1262,13 +1260,6 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
             </button>
 
             <div className="repo-buttons">
-              <button
-                className="repo-action-button"
-                onClick={handleDownloadRepo}
-                disabled={!selectedRepo}
-              >
-                Скачать с сервера
-              </button>
               {selectedRepo && user && (() => {
                 const { owner } = parseRepoRef(selectedRepo, user?.name);
                 return owner && owner.toLowerCase() === (user?.name || '').toLowerCase();
@@ -1297,12 +1288,6 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                 <span className="local-repo-label">
                   Локальный репозиторий: {localRepoPath || 'не выбран'}
                 </span>
-                <button
-                  className="repo-action-button"
-                  onClick={handleChooseLocalFolder}
-                >
-                  Выбрать
-                </button>
                 {selectedRepo && !localRepoPath && (
                   <div className="suggestion-message">
                     Для этого репозитория не указана локальная папка.
@@ -1360,7 +1345,7 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                         disabled={isLoadingRepos}
                         title="Отправить локальные изменения на сервер"
                       >
-                        ⬆️ Отправить
+                        ⬆️ Отправить{localAheadCount > 0 ? ` (${localAheadCount})` : ''}
                       </button>
                     </>
                   )}
