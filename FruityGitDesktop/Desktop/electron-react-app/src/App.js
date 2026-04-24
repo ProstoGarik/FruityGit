@@ -27,7 +27,6 @@ function App() {
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [localRepoPath, setLocalRepoPath] = useState(null);
   const [selectedRepo, setSelectedRepo] = useState(null);
-  const [processWithPython, setProcessWithPython] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState(null);
   const [showCreateRepo, setShowCreateRepo] = useState(false);
@@ -217,86 +216,50 @@ function App() {
       if (!filePath) return;
 
       setIsFlpProcessing(true);
-      setFlpProcessingMessage(
-        processWithPython
-          ? 'Обработка FLP… Это может занять некоторое время. Пожалуйста, подождите.'
-          : 'Копирование файла в репозиторий…'
-      );
+      setFlpProcessingMessage('Обработка FLP… Это может занять некоторое время. Пожалуйста, подождите.');
 
-      const stageFileInLocalRepo = async (sourcePath, localPath) => {
-        const fileContent = await window.electronAPI.readFile(sourcePath);
-        if (!fileContent) {
-          throw new Error('Не удалось прочитать файл');
-        }
-
-        const fileName = sourcePath.split(/[\\/]/).pop();
-        const destinationPath = window.electronAPI.pathJoin(localPath, 'uploads', fileName);
-        await window.electronAPI.mkdir(window.electronAPI.pathDirname(destinationPath), { recursive: true });
-        await window.electronAPI.writeFile(destinationPath, fileContent);
-
-        const addResult = await window.electronAPI.git.add(localPath, destinationPath);
-        if (!addResult.success) {
-          throw new Error(addResult.error || 'Не удалось добавить файл в индекс');
-        }
-
-        return destinationPath;
-      };
-
-      if (processWithPython) {
-        // Call IPC to run Python in main
-        const zipPath = await window.electronAPI.runPythonProcessor(filePath);
-        setFlpProcessingMessage('Распаковка архива и подготовка файлов в репозитории…');
-        const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
-        if (!localPath) {
-          alert('Выберите папку для клонирования репозитория');
-          return;
-        }
-
-        // Extract ZIP into the repo and stage extracted contents (not the ZIP file)
-        const zipBaseName = window.electronAPI.pathBasename(zipPath).replace(/\.zip$/i, '');
-        // Use a stable folder per FLP to avoid re-adding the whole tree each upload.
-        // This allows git to show only real added/deleted/modified files.
-        const extractTo = window.electronAPI.pathJoin(localPath, 'uploads', zipBaseName);
-        const uploadsRoot = window.electronAPI.pathJoin(localPath, 'uploads');
-        const markerFileName = '.fruitygit-extracted.marker';
-        const markerPath = window.electronAPI.pathJoin(extractTo, markerFileName);
-
-        // Replace existing extracted project contents (if any), but only if the folder
-        // is one we previously created. This prevents accidental deletion of
-        // user folders if paths are misconfigured.
-        const markerExists = await window.electronAPI.fileExists(markerPath);
-        if (markerExists) {
-          const delResult = await window.electronAPI.rmrfUnder(uploadsRoot, extractTo);
-          if (!delResult?.success) {
-            throw new Error(delResult?.error || 'Не удалось удалить старые распакованные файлы');
-          }
-        }
-
-        await window.electronAPI.mkdir(extractTo, { recursive: true });
-        await window.electronAPI.extractZip(zipPath, extractTo);
-        // Write marker after successful extraction.
-        await window.electronAPI.writeFile(markerPath, `${new Date().toISOString()}\n`);
-
-        const addResult = await window.electronAPI.git.add(localPath, extractTo);
-        if (!addResult.success) {
-          throw new Error(addResult.error || 'Не удалось добавить распакованные файлы в индекс');
-        }
-
-        setAttachedFile(extractTo);
-        alert('Архив распакован и добавлен в локальный репозиторий. Нажмите «Коммит», чтобы создать коммит.');
-        return extractTo;
-      } else {
-        setFlpProcessingMessage('Подготовка локальной копии репозитория…');
-        const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
-        if (!localPath) {
-          alert('Выберите папку для клонирования репозитория');
-          return;
-        }
-        const stagedPath = await stageFileInLocalRepo(filePath, localPath);
-        setAttachedFile(stagedPath);
-        alert('Файл добавлен в локальный репозиторий. Нажмите «Коммит», чтобы создать коммит.');
-        return stagedPath;
+      // Call IPC to run Python in main
+      const zipPath = await window.electronAPI.runPythonProcessor(filePath);
+      setFlpProcessingMessage('Распаковка архива и подготовка файлов в репозитории…');
+      const localPath = await ensureLocalRepoFor(selectedRepo, user.name);
+      if (!localPath) {
+        alert('Выберите папку для клонирования репозитория');
+        return;
       }
+
+      // Extract ZIP into the repo and stage extracted contents (not the ZIP file)
+      const zipBaseName = window.electronAPI.pathBasename(zipPath).replace(/\.zip$/i, '');
+      // Use a stable folder per FLP to avoid re-adding the whole tree each upload.
+      // This allows git to show only real added/deleted/modified files.
+      const extractTo = window.electronAPI.pathJoin(localPath, 'uploads', zipBaseName);
+      const uploadsRoot = window.electronAPI.pathJoin(localPath, 'uploads');
+      const markerFileName = '.fruitygit-extracted.marker';
+      const markerPath = window.electronAPI.pathJoin(extractTo, markerFileName);
+
+      // Replace existing extracted project contents (if any), but only if the folder
+      // is one we previously created. This prevents accidental deletion of
+      // user folders if paths are misconfigured.
+      const markerExists = await window.electronAPI.fileExists(markerPath);
+      if (markerExists) {
+        const delResult = await window.electronAPI.rmrfUnder(uploadsRoot, extractTo);
+        if (!delResult?.success) {
+          throw new Error(delResult?.error || 'Не удалось удалить старые распакованные файлы');
+        }
+      }
+
+      await window.electronAPI.mkdir(extractTo, { recursive: true });
+      await window.electronAPI.extractZip(zipPath, extractTo);
+      // Write marker after successful extraction.
+      await window.electronAPI.writeFile(markerPath, `${new Date().toISOString()}\n`);
+
+      const addResult = await window.electronAPI.git.add(localPath, extractTo);
+      if (!addResult.success) {
+        throw new Error(addResult.error || 'Не удалось добавить распакованные файлы в индекс');
+      }
+
+      setAttachedFile(extractTo);
+      alert('Архив распакован и добавлен в локальный репозиторий. Нажмите «Коммит», чтобы создать коммит.');
+      return extractTo;
     } catch (error) {
       console.error('Error processing FLP file:', error);
       alert(`Ошибка: ${error.message}`);
@@ -868,7 +831,16 @@ function App() {
     };
 
     const formatFileList = (label, files) => {
-      const list = (files || []).filter(Boolean);
+      const list = (files || [])
+        .filter(Boolean)
+        // Hide technical metadata file from user-facing commit details.
+        .filter(f => !String(f).toLowerCase().endsWith('.fruitygit-flp-meta.json'))
+        // Show only file names, not full repository paths.
+        .map(f => {
+          const p = String(f);
+          const parts = p.split(/[\\/]/).filter(Boolean);
+          return parts.length > 0 ? parts[parts.length - 1] : p;
+        });
       if (list.length === 0) return `${label}: (нет)`;
       return `${label}:\n${list.map(f => `- ${f}`).join('\n')}`;
     };
@@ -1061,6 +1033,29 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
     }
   };
 
+  const handleOpenAttachedInExplorer = async () => {
+    if (!attachedFile && !localRepoPath) return;
+    try {
+      const uploadsRoot = localRepoPath ? window.electronAPI.pathJoin(localRepoPath, 'uploads') : null;
+      const preferredTarget = attachedFile || uploadsRoot;
+      const fallbackTarget = uploadsRoot || attachedFile;
+      const exists = preferredTarget ? await window.electronAPI.fileExists(preferredTarget) : false;
+      const target = exists
+        ? preferredTarget
+        : (fallbackTarget || preferredTarget);
+      if (!target) {
+        throw new Error('Путь uploads не определён');
+      }
+      const result = await window.electronAPI.openInExplorer(target);
+      if (!result?.success) {
+        throw new Error(result?.error || 'Не удалось открыть проводник');
+      }
+    } catch (error) {
+      console.error('Open explorer error:', error);
+      alert(`Ошибка открытия папки: ${error.message}`);
+    }
+  };
+
   useEffect(() => {
     if (user) return;
 
@@ -1175,18 +1170,6 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
           {/* Attach File Section */}
 
           <div className="section">
-            <div className="toggle-container">
-              <label className="toggle-label">
-                Обрабатывать через Python:
-                <input
-                  type="checkbox"
-                  checked={processWithPython}
-                  onChange={() => setProcessWithPython(!processWithPython)}
-                  className="toggle-switch"
-                />
-              </label>
-            </div>
-
             <button className="action-button" onClick={handleAttachFile}>
               Прикрепить файл
             </button>
@@ -1194,8 +1177,16 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
             {attachedFile && (
               <div className="attached-file-info">
                 Прикреплён: {attachedFile}
-                <br />
-                Режим: {processWithPython ? "Обработка Python" : "Прямая загрузка"}
+                <div style={{ marginTop: '8px' }}>
+                  <button
+                    className="repo-action-button small"
+                    type="button"
+                    onClick={handleOpenAttachedInExplorer}
+                    title="Открыть папку uploads в проводнике"
+                  >
+                    Открыть в проводнике
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1306,6 +1297,14 @@ ${formatBpmChanges(commit.baseBpmChanges)}`
                       onClick={handleChooseLocalFolder}
                     >
                       Изменить локальную папку
+                    </button>
+                    <button
+                      className="repo-action-button small"
+                      onClick={handleOpenAttachedInExplorer}
+                      title="Открыть uploads в проводнике"
+                      style={{ marginLeft: '8px' }}
+                    >
+                      Открыть uploads
                     </button>
                   </div>
                 )}

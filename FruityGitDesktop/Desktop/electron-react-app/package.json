@@ -1,6 +1,8 @@
 {
-  "name": "electron-react-app",
+  "name": "FruityGit",
   "version": "0.1.0",
+  "description": "Git VCS for FL Studio",
+  "author": "ProstoGarik_",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
@@ -8,6 +10,7 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "electron-is-dev": "^3.0.1",
+    "electron-squirrel-startup": "^1.0.1",
     "extract-zip": "^2.0.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -18,13 +21,18 @@
   "main": "main.js",
   "homepage": "./",
   "scripts": {
-    "start": "cross-env PORT=3002 react-scripts start",
+    "start": "electron-forge start",
+    "start:react": "react-scripts start",
+    "build:python-exe": "py -3.12 -m PyInstaller --onefile --name flp_processor resources/python-app/dist/flp_processor.py --distpath resources/python-app/dist --workpath resources/python-app/build --specpath resources/python-app",
     "build": "react-scripts build",
     "electron": "electron .",
-    "dev": "concurrently \"cross-env BROWSER=none PORT=3002 npm start\" \"wait-on tcp:127.0.0.1:3002 && electron .\"",
+    "free-port": "kill-port 3002",
+    "dev": "npm run free-port && concurrently --kill-others \"cross-env BROWSER=none PORT=3002 npm run start:react\" \"wait-on tcp:127.0.0.1:3002 && npm run electron\"",
     "postinstall": "electron-builder install-app-deps",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
   },
   "eslintConfig": {
     "extends": [
@@ -45,11 +53,19 @@
     ]
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.11.1",
+    "@electron-forge/maker-deb": "^7.11.1",
+    "@electron-forge/maker-rpm": "^7.11.1",
+    "@electron-forge/maker-squirrel": "^7.11.1",
+    "@electron-forge/maker-zip": "^7.11.1",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.11.1",
+    "@electron-forge/plugin-fuses": "^7.11.1",
+    "@electron/fuses": "^1.8.0",
     "@electron/rebuild": "^4.0.1",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "electron": "^37.0.0",
-    "electron-builder": "^26.0.12",
+    "kill-port": "^2.0.1",
     "wait-on": "^8.0.3"
   },
   "build": {

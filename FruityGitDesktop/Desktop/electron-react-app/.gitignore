@@ -10,6 +10,13 @@
 
 # production
 /build
+/out
+/dist
+
+# packaged python processor artifacts (keep sources in resources/python-app/dist)
+/resources/python-app/dist/flp_processor.exe
+/resources/python-app/build/
+/resources/python-app/*.spec
 
 # misc
 .DS_Store

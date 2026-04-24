@@ -319,52 +319,6 @@
   word-break: break-word;
 }
 
-.toggle-container {
-  margin-bottom: 0;
-  display: flex;
-  align-items: center;
-}
-
-.toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.toggle-switch {
-  position: relative;
-  width: 42px;
-  height: 22px;
-  appearance: none;
-  background: #30363d;
-  border-radius: 20px;
-  outline: none;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.toggle-switch:checked {
-  background: var(--success);
-}
-
-.toggle-switch::before {
-  content: '';
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #e6edf3;
-  top: 2px;
-  left: 2px;
-  transition: transform 0.3s;
-}
-
-.toggle-switch:checked::before {
-  transform: translateX(20px);
-}
-
 .repo-buttons {
   display: flex;
   flex-direction: column;

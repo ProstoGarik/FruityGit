@@ -9,6 +9,16 @@ const LoginWindow = ({ onClose, serverPath }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isRegistering, setIsRegistering] = useState(false);
 
+    const parseResponseBody = async (response) => {
+        const raw = await response.text();
+        if (!raw) return {};
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return { message: raw };
+        }
+    };
+
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
@@ -27,10 +37,15 @@ const LoginWindow = ({ onClose, serverPath }) => {
                 body: JSON.stringify({ Email: email, Password: password }),
             });
 
-            const data = await response.json();
+            const data = await parseResponseBody(response);
 
             if (!response.ok) {
-                throw new Error(data.message || 'Ошибка входа');
+                throw new Error(
+                    data?.message
+                    || data?.title
+                    || (typeof data === 'string' ? data : null)
+                    || 'Ошибка входа'
+                );
             }
 
             localStorage.setItem('accessToken', data.token);      // было data.Token
@@ -78,10 +93,15 @@ const LoginWindow = ({ onClose, serverPath }) => {
                 }),
             });
 
-            const data = await response.json();
+            const data = await parseResponseBody(response);
 
             if (!response.ok) {
-                throw new Error(data.message || 'Ошибка регистрации');
+                throw new Error(
+                    data?.message
+                    || data?.title
+                    || (typeof data === 'string' ? data : null)
+                    || 'Ошибка регистрации'
+                );
             }
 
             localStorage.setItem('accessToken', data.token);      // было data.Token

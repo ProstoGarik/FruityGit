@@ -5,6 +5,12 @@ import { getGiteaToken } from '../Login/AuthService';
 
 export const GitService = {
   FLP_METADATA_FILE_NAME: '.fruitygit-flp-meta.json',
+  FLP_MARKER_FILE_NAME: '.fruitygit-extracted.marker',
+
+  isHiddenTechnicalFile(filePath) {
+    const file = String(filePath || '').toLowerCase();
+    return file.endsWith(this.FLP_MARKER_FILE_NAME.toLowerCase());
+  },
 
   parseBaseBpmFromMetadata(rawContent) {
     try {
@@ -61,7 +67,7 @@ export const GitService = {
 
       const oldLabel = previousBpm === null ? '(none)' : String(previousBpm);
       const newLabel = currentBpm === null ? '(none)' : String(currentBpm);
-      changes.push(`${metaFile}: ${oldLabel} -> ${newLabel}`);
+      changes.push(`${oldLabel} -> ${newLabel}`);
     }
 
     return changes;
@@ -220,9 +226,9 @@ export const GitService = {
 
           commitsWithChanges.push({
             ...commit,
-            addedFiles: changesResult.addedFiles || [],
-            deletedFiles: changesResult.deletedFiles || [],
-            modifiedFiles: changesResult.modifiedFiles || [],
+            addedFiles: (changesResult.addedFiles || []).filter(file => !this.isHiddenTechnicalFile(file)),
+            deletedFiles: (changesResult.deletedFiles || []).filter(file => !this.isHiddenTechnicalFile(file)),
+            modifiedFiles: (changesResult.modifiedFiles || []).filter(file => !this.isHiddenTechnicalFile(file)),
             baseBpmChanges,
             pluginSnapshot
           });

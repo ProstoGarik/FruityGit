@@ -1,13 +1,13 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const isDev = require('electron-is-dev');
 const simpleGit = require('simple-git');
 
 let mainWindow = null;
 
 function createWindow() {
   console.log('Preload path:', path.join(__dirname, 'preload.js'));
+  const isDevelopment = !app.isPackaged;
 
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -20,11 +20,11 @@ function createWindow() {
     }
   });
 
-  if (isDev) {
+  if (isDevelopment) {
     mainWindow.loadURL('http://localhost:3002');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../build/index.html'));
+    mainWindow.loadFile(path.join(__dirname, 'build', 'index.html'));
   }
 
   mainWindow.on('closed', () => {
@@ -83,18 +83,92 @@ ipcMain.handle('open-flp-dialog', async () => {
 ipcMain.handle('get-app-path', () => app.getAppPath());
 
 ipcMain.handle('read-file', (event, filePath) => fs.readFileSync(filePath));
+ipcMain.handle('open-in-explorer', async (event, targetPath) => {
+  try {
+    if (!targetPath) return { success: false, error: 'targetPath is required' };
+    const resolved = path.resolve(targetPath);
+    const openTarget = fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()
+      ? resolved
+      : path.dirname(resolved);
+    const err = await shell.openPath(openTarget);
+    if (err) return { success: false, error: err };
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
 
 // New: Python processor handler
 ipcMain.handle('run-python-processor', async (event, filePath) => {
   return new Promise((resolve, reject) => {
     const appPath = app.getAppPath();
-    const pythonScriptPath = path.join(appPath, 'resources', 'python-app', 'dist', 'flp_processor.py');
+    const candidateDistPaths = app.isPackaged
+      ? [
+          // Electron Forge extraResource("resources/python-app/dist") often ends up as resources/dist
+          path.join(process.resourcesPath, 'dist'),
+          // Alternative layout if parent folder is preserved
+          path.join(process.resourcesPath, 'python-app', 'dist'),
+          path.join(process.resourcesPath, 'resources', 'python-app', 'dist'),
+        ]
+      : [
+          path.join(appPath, 'resources', 'python-app', 'dist'),
+        ];
 
-    if (!fs.existsSync(pythonScriptPath)) {
-      return reject(new Error(`FLP processor not found at: ${pythonScriptPath}`));
-    }
+    const pythonDistPath = candidateDistPaths.find(p => fs.existsSync(p)) || candidateDistPaths[0];
+    const processorExePath = path.join(pythonDistPath, 'flp_processor.exe');
+    const pythonScriptPath = path.join(pythonDistPath, 'flp_processor.py');
 
     const { spawn, spawnSync } = require('child_process');
+
+    // Preferred mode: standalone executable bundled with the app.
+    if (fs.existsSync(processorExePath)) {
+      const exeProcess = spawn(
+        processorExePath,
+        [filePath],
+        { cwd: pythonDistPath }
+      );
+
+      let output = '';
+      let errorOutput = '';
+
+      exeProcess.stdout.on('data', (data) => {
+        output += data.toString();
+        console.log(`FLP processor stdout: ${data}`);
+      });
+
+      exeProcess.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+        console.error(`FLP processor stderr: ${data}`);
+      });
+
+      exeProcess.on('close', (code) => {
+        if (code === 0) {
+          const lines = output
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean);
+          const zipPath = lines.find(line => line.toLowerCase().endsWith('.zip')) || lines[lines.length - 1];
+          if (zipPath && fs.existsSync(zipPath)) {
+            resolve(zipPath);
+          } else {
+            reject(new Error(`Failed to create ZIP file. Output: ${output || '(empty)'}`));
+          }
+        } else {
+          reject(new Error(`FLP processor exe failed: ${errorOutput}`));
+        }
+      });
+      return;
+    }
+
+    // Fallback mode: python script in development if exe isn't built yet.
+    if (!fs.existsSync(pythonScriptPath)) {
+      return reject(new Error(
+        `FLP processor not found. Tried dist paths:\n` +
+        `${candidateDistPaths.map(p => `- ${p}`).join('\n')}\n` +
+        `Expected executable at: ${processorExePath}\n` +
+        `or script at: ${pythonScriptPath}`
+      ));
+    }
     const interpreterCandidates = [
       // pyflp currently fails under Python 3.13 (EventEnum empty Enum behavior),
       // so prefer Python 3.12 when available.
@@ -168,7 +242,7 @@ ipcMain.handle('run-python-processor', async (event, filePath) => {
     const pythonProcess = spawn(
       selectedInterpreter.cmd,
       [...selectedInterpreter.args, pythonScriptPath, filePath],
-      { cwd: path.dirname(pythonScriptPath) }
+      { cwd: pythonDistPath }
     );
 
     let output = '';

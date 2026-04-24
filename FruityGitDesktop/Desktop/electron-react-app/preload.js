@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // File system (only safe operations)
   readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  openInExplorer: (targetPath) => ipcRenderer.invoke('open-in-explorer', targetPath),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
 
   // Zip extraction
